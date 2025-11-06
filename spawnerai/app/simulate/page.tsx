@@ -14,6 +14,7 @@ const navItems = [
   { label: "Squad", href: "/squad", section: "Team" },
   { label: "Simulate", href: "/simulate", section: "Team" },
   { label: "Report", href: "/report/example", section: "Team" },
+  { label: "Champions", href: "/champions", section: "Team" },
   { label: "Onboarding", href: "/onboarding", section: "Setup" },
 ];
 
