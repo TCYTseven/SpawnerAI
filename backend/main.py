@@ -1,6 +1,7 @@
-# main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import fetchdata, model
 
 app = FastAPI(
     title="My FastAPI App",
@@ -23,7 +24,6 @@ app.add_middleware(
     allow_headers=["*"],            # e.g. ["Authorization", "Content-Type"]
 )
 
-# --- Sample Routes ---
 @app.get("/")
 def root():
     return {"message": "FastAPI is running!"}
@@ -32,10 +32,28 @@ def root():
 def health_check():
     return {"status": "ok"}
 
-# --- Example API Route ---
-@app.post("/items/")
-def create_item(item: dict):
-    return {"received": item}
+class affinityRequest(BaseModel):
+    steamid: str
+    riotname: str
+    riottag: str
+# class synergyRequest(BaseModel):
 
-# --- Run ---
-# uvicorn main:app --reload
+#     riotname: str
+#     riottag: str
+
+@app.get("/getAffinity")
+def getAffinity(request: affinityRequest):
+    dotamatches = fetchdata.dota2matches(request["steamid"])
+    leaguematches = fetchdata.leaguematches(requests["riotname"], requests["riottag"])
+    results = model.predict(dotamatches+leaguematches)
+
+    return {
+        "affinity": results
+    }
+
+# @app.get("/getSynergy")
+# def getSynergy(request: synergyRequest):
+
+
+
+uvicorn.run("main:app", reload=True)
