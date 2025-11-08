@@ -13,25 +13,47 @@ if not supabase_url or not supabase_key:
 supabase: Client = create_client(supabase_url, supabase_key)
 
 
-def get_user_profile(user_id: str):
+def get_user_profile(email: str):
     """
-    Fetch user profile from Supabase database.
+    Fetch user profile from Supabase database by email.
     Returns dict with riot_name, riot_id, steam_id or None if not found.
     """
     try:
-        response = supabase.table("user_profiles").select("riot_name, riot_id, steam_id").eq("user_id", user_id).execute()
+        response = supabase.table("user_profiles").select("riot_name, riot_id, steam_id").eq("email", email).execute()
         
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        
+        return None
+    except Exception as e:
+        print(f"Error fetching user profile: {e}")
+        return None
+
+
+def get_user_by_email(email: str):
+    """
+    Fetch user profile by email.
+    Returns dict with email as key or None if not found.
+    """
+    try:
+        response = supabase.table("user_profiles").select("*").eq("email", email).execute()
         if response.data and len(response.data) > 0:
             return response.data[0]
         return None
     except Exception as e:
-        error_msg = str(e)
-        # Check if it's a table not found error
-        if "Could not find the table" in error_msg or "PGRST205" in error_msg:
-            print(f"ERROR: The 'user_profiles' table does not exist in your Supabase database.")
-            print(f"Please run the SQL schema from 'supabase_schema.sql' in your Supabase SQL Editor.")
-            print(f"See README_SUPABASE.md for detailed instructions.")
-        else:
-            print(f"Error fetching user profile: {e}")
+        print(f"Error fetching user by email: {e}")
         return None
+
+
+def email_exists(email: str) -> bool:
+    """
+    Check if an email already exists in user_profiles table.
+    Returns True if email exists, False otherwise.
+    """
+    try:
+        response = supabase.table("user_profiles").select("email").eq("email", email).execute()
+        return len(response.data) > 0
+    except Exception as e:
+        print(f"Error checking email existence: {e}")
+        return False
 

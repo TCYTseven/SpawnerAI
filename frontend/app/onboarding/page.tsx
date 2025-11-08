@@ -8,9 +8,8 @@ import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { saveUserProfile } from "@/lib/userProfile";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAffinity } from "@/lib/api";
+import { initializeUserProfile } from "@/lib/api";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", section: "Overview" },
@@ -82,52 +81,32 @@ export default function OnboardingPage() {
   // Fetch stats from backend when reaching the analyzing step
   useEffect(() => {
     if (currentStep === 1 && user) {
-      const fetchAffinity = async () => {
-        setFetchingProgress(0);
-        setFetchingError(null);
-        
-        // Simulate progress
-        const progressInterval = setInterval(() => {
-          setFetchingProgress((prev) => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 10;
-          });
-        }, 300);
-
-        try {
-          const { data, error } = await getAffinity();
-          
-          clearInterval(progressInterval);
-          setFetchingProgress(100);
-          
-          if (error) {
-            setFetchingError(error.message || "Failed to fetch affinity data");
-            return;
+      setFetchingProgress(0);
+      setFetchingError(null);
+      
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setFetchingProgress((prev) => {
+          if (prev >= 90) {
+            return 90;
           }
-          
-          if (data) {
-            // Store both Dota 2 and League data
-            setAffinityData(data);
-            // Move to next step after a short delay
-            setTimeout(() => {
-              setCurrentStep(2);
-            }, 500);
-          }
-        } catch (err) {
-          clearInterval(progressInterval);
-          setFetchingError(err instanceof Error ? err.message : "An error occurred");
-        }
-      };
+          return prev + Math.random() * 15;
+        });
+      }, 300);
 
-      // Small delay to ensure profile is saved before fetching
+      // After simulated analysis, move to next step
       const timeout = setTimeout(() => {
-        fetchAffinity();
-      }, 500);
+        clearInterval(progressInterval);
+        setFetchingProgress(100);
+        setTimeout(() => {
+          setCurrentStep(2);
+        }, 500);
+      }, 2500);
 
-      return () => clearTimeout(timeout);
+      return () => {
+        clearInterval(progressInterval);
+        clearTimeout(timeout);
+      };
     }
   }, [currentStep, user]);
 
@@ -150,7 +129,6 @@ export default function OnboardingPage() {
 
   const handleNext = async () => {
     if (currentStep === 0) {
-      // Save user profile before moving to analyzing step
       if (user) {
         if (!steamId && (!riotName || !riotId)) {
           alert("Please enter at least your Steam ID or Riot Name and ID");
@@ -158,23 +136,23 @@ export default function OnboardingPage() {
         }
 
         try {
-          const { error, success } = await saveUserProfile({
+          const { data, error } = await initializeUserProfile({
             riot_name: riotName.trim() || undefined,
             riot_id: riotId.trim() || undefined,
             steam_id: steamId.trim() || undefined,
           });
 
           if (error) {
-            console.error("Error saving user profile:", error);
+            console.error("Error initializing user profile:", error);
             alert(`Failed to save profile: ${error.message}`);
             return;
           }
 
-          if (success) {
-            console.log("Profile saved successfully");
+          if (data?.success) {
+            console.log("Profile initialized successfully");
           }
         } catch (error) {
-          console.error("Exception saving user profile:", error);
+          console.error("Exception initializing user profile:", error);
           alert(`Error saving profile: ${error instanceof Error ? error.message : "Unknown error"}`);
           return;
         }
@@ -193,7 +171,7 @@ export default function OnboardingPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("spawner_onboarding_completed", "true");
     }
-    router.push("/recommendations");
+    router.push("/dashboard");
   };
 
   const canProceed = () => {
@@ -303,7 +281,7 @@ export default function OnboardingPage() {
                     <span className="text-[#ff7a00] text-sm">
                       {fetchingProgress >= (index + 1) * (100 / gamesToFetch.length)
                         ? "✓ Complete"
-                        : `${Math.min(fetchingProgress - index * (100 / gamesToFetch.length), 100 / gamesToFetch.length).toFixed(0)}%`}
+                        : `${Math.max(0, Math.min(fetchingProgress - index * (100 / gamesToFetch.length), 100 / gamesToFetch.length)).toFixed(0)}%`}
                     </span>
                   </div>
                   <div className="h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
@@ -347,7 +325,7 @@ export default function OnboardingPage() {
                     ) : (
                       <Typewriter
                         text={term.explanation}
-                        speed={20}
+                        speed={4}
                         onComplete={() => handleTermComplete(index)}
                       />
                     )}
@@ -358,16 +336,7 @@ export default function OnboardingPage() {
                 </div>
               );
             })}
-            {completedTerms.length === leagueTerms.length && (
-              <div className="pt-8 border-t border-[#2b2b2b]">
-                <Button
-                  className="w-full bg-[#ff7a00] text-white hover:bg-[#ff8a20] text-lg py-6"
-                  onPress={handleFinish}
-                >
-                  See What You Should Play
-                </Button>
-              </div>
-            )}
+
           </div>
         );
       default:

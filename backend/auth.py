@@ -95,3 +95,16 @@ async def get_optional_user(
     except Exception:
         return None
 
+
+def email_already_exists(email: str) -> bool:
+    """
+    Check if an email already exists in Supabase Auth.
+    Uses the user_profiles table as a proxy to check registration.
+    """
+    try:
+        response = supabase.table("user_profiles").select("email").eq("email", email).execute()
+        return len(response.data) > 0
+    except Exception as e:
+        print(f"Error checking if email exists: {e}")
+        return False
+

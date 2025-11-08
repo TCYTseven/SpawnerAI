@@ -100,7 +100,7 @@ export default function SimulatePage() {
                   aria-label="Select player"
                 >
                   {mockPlayers.map((player) => (
-                    <SelectItem key={player.id} value={player.id}>
+                    <SelectItem key={player.id}>
                       {player.username}
                     </SelectItem>
                   ))}

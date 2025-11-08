@@ -18,14 +18,12 @@ export async function saveUserProfile(profile: UserProfile): Promise<{ error: Er
       return { error: new Error("User not authenticated") };
     }
 
-    console.log("Saving user profile:", { user_id: user.id, profile });
+    console.log("Saving user profile:", { email: user.email, profile });
 
-    // Only include fields that are actually provided (not undefined or empty)
     const profileData: any = {
-      user_id: user.id,
+      email: user.email,
     };
 
-    // Only add fields that have actual values (not empty strings)
     if (profile.riot_name !== undefined && profile.riot_name.trim() !== "") {
       profileData.riot_name = profile.riot_name.trim();
     }
@@ -41,13 +39,25 @@ export async function saveUserProfile(profile: UserProfile): Promise<{ error: Er
       .upsert(
         profileData,
         {
-          onConflict: "user_id",
+          onConflict: "email",
         }
       )
       .select();
 
     if (error) {
       console.error("Error saving user profile to Supabase:", error);
+      console.error("Error details:", { code: error.code, message: error.message, details: error.details });
+      
+      if (error.code === "42P01") {
+        return { error: new Error("Database table not found. Please contact support.") };
+      }
+      if (error.code === "42703") {
+        return { error: new Error("Database schema mismatch. Please contact support.") };
+      }
+      if (error.message?.includes("permission") || error.message?.includes("policy")) {
+        return { error: new Error("You don't have permission to save your profile. Please contact support.") };
+      }
+      
       return { error: new Error(error.message || "Failed to save profile") };
     }
 
@@ -75,7 +85,7 @@ export async function getUserProfile(): Promise<{
     const { data, error } = await supabase
       .from("user_profiles")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("email", user.email)
       .single();
 
     if (error) {
@@ -90,4 +100,3 @@ export async function getUserProfile(): Promise<{
     };
   }
 }
-

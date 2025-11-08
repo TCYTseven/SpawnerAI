@@ -73,7 +73,7 @@ export async function getAffinity() {
       affinity: any;
       match_count: number;
     } | null;
-    user_id: string;
+    user_email: string;
   }>("/getAffinity", {
     method: "POST",
   });
@@ -99,9 +99,101 @@ export async function getMatchHistory() {
       }>;
       total_matches: number;
     } | null;
-    user_id: string;
+    user_email: string;
   }>("/getMatchHistory", {
     method: "POST",
   });
 }
 
+export async function getSynergy(otherUserEmail: string) {
+  return apiRequest<{
+    synergy: {
+      dota2?: {
+        synergy: number;
+        reasoning: string;
+      };
+      league?: {
+        synergy: number;
+        reasoning: string;
+      };
+    };
+    other_user_email: string;
+    current_user_email: string;
+  }>("/getSynergy", {
+    method: "POST",
+    body: JSON.stringify({
+      other_user_email: otherUserEmail,
+    }),
+  });
+}
+
+export async function getSquadMembers() {
+  return apiRequest<{
+    members: Array<{
+      email: string;
+      riot_name?: string;
+      riot_id?: string;
+      is_self: boolean;
+    }>;
+  }>("/getSquadMembers", {
+    method: "POST",
+  });
+}
+
+export async function addSquadMember(email: string) {
+  return apiRequest<{
+    message: string;
+    email: string;
+    riot_name?: string;
+    riot_id?: string;
+    is_self: boolean;
+  }>("/addSquadMember", {
+    method: "POST",
+    body: JSON.stringify({
+      other_user_email: email,
+    }),
+  });
+}
+
+export async function getSuggestedRole(email: string) {
+  return apiRequest<{
+    email: string;
+    suggested_role: string;
+    affinity: {
+      offense: number;
+      tank: number;
+      support: number;
+      scout: number;
+      hybrid: number;
+    } | null;
+  }>("/getSuggestedRole", {
+    method: "POST",
+    body: JSON.stringify({
+      other_user_email: email,
+    }),
+  });
+}
+
+export async function checkProfileExists() {
+  return apiRequest<{
+    has_profile: boolean;
+    message: string;
+  }>("/checkProfileExists", {
+    method: "POST",
+  });
+}
+
+export async function initializeUserProfile(data: {
+  riot_name?: string;
+  riot_id?: string;
+  steam_id?: string;
+}) {
+  return apiRequest<{
+    success: boolean;
+    message: string;
+    email: string;
+  }>("/initializeUserProfile", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
