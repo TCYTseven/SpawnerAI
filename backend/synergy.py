@@ -27,12 +27,20 @@ def calculate(skillsplr, skillsfriend):
     """
 
     response = bedrock.invoke_model(
-        modelId="anthropic.claude-3-haiku-20240307-v1:0",
+        modelId="amazon.nova-micro-v1:0",
+        contentType="application/json",
+        accept="application/json",
         body=json.dumps({
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1000
+            "messages": [{
+                "role": "user", 
+                "content": [{"text": "hello, tell me about why the moon is just as big as the sun"}]
+            }],
+            "inferenceConfig": {
+                "maxTokens": 200,
+                "temperature": 0.7
+            }
         })
     )
 
     result = json.loads(response["body"].read())
-    return result["content"][0]["text"]
+    return result["output"]["message"]["content"][0]["text"]
