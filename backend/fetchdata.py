@@ -18,7 +18,8 @@ def dota2matches(steamid=76561198420364098):
             match["kills"],
             match["deaths"],
             match["assists"],
-            (match["player_slot"] < 128 and match["radiant_win"]) or (match["player_slot"] >= 128 and not match["radiant_win"])
+            (match["player_slot"] < 128 and match["radiant_win"]) or (match["player_slot"] >= 128 and not match["radiant_win"]),
+            match["start_time"]
         ])
 
     return matchdata
@@ -33,16 +34,17 @@ def leaguematches(riotname="sykkuno", riottag="leaf"):
 
     herodata = herovalues.getstatsleague()
     matchdata = []
-    for match in response.json():
-        matchdata = requests.get(f"https://americas.api.riotgames.com/lol/match/v5/matches/{match}"+api).json()
-        for participant in matchdata["info"]["participants"]:
+    for match_id in response.json():
+        match_response = requests.get(f"https://americas.api.riotgames.com/lol/match/v5/matches/{match_id}"+api).json()
+        for participant in match_response["info"]["participants"]:
             if participant["puuid"] == puuid:
                 matchdata.append([
-                    herodata[participant["champion_id"]],
+                    herodata[participant["championId"]],
                     participant["kills"],
                     participant["deaths"],
                     participant["assists"],
-                    participant["win"]
+                    participant["win"],
+                    match_response["info"]["gameEndTimestamp"]
                 ])
                 break
 

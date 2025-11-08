@@ -9,17 +9,37 @@ import { siteConfig } from "@/config/site";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import NextLink from "next/link";
+import { signUp } from "@/lib/auth";
 
 export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock signup - check onboarding status
-    const onboardingCompleted = typeof window !== "undefined" && localStorage.getItem("spawner_onboarding_completed") === "true";
-    router.push(onboardingCompleted ? "/dashboard" : "/onboarding");
+    setError(null);
+    setLoading(true);
+
+    try {
+      const { user, error: signUpError } = await signUp(email, password);
+
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (user) {
+        // Force redirect to onboarding after signup
+        router.push("/onboarding");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred during signup");
+      setLoading(false);
+    }
   };
 
   const handleContinueWithoutAccount = () => {
@@ -38,6 +58,11 @@ export default function SignupPage() {
             <p className="text-sm text-[#cfcfcf]">Create your Spawner – AI account</p>
           </CardHeader>
           <CardBody className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 type="email"
@@ -52,6 +77,7 @@ export default function SignupPage() {
                 }}
                 aria-label="Email address"
                 required
+                isDisabled={loading}
               />
               <Input
                 type="password"
@@ -66,10 +92,13 @@ export default function SignupPage() {
                 }}
                 aria-label="Password"
                 required
+                isDisabled={loading}
               />
               <Button
                 type="submit"
                 className="w-full bg-[#ff7a00] text-white hover:bg-[#ff8a20]"
+                isLoading={loading}
+                isDisabled={loading}
               >
                 Continue
               </Button>

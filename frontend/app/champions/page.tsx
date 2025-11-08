@@ -13,7 +13,6 @@ const navItems = [
   { label: "Simulate", href: "/simulate", section: "Team" },
   { label: "Report", href: "/report/example", section: "Team" },
   { label: "Champions", href: "/champions", section: "Team" },
-  { label: "Onboarding", href: "/onboarding", section: "Setup" },
 ];
 
 // Mock user data - in real app this would come from onboarding/storage
