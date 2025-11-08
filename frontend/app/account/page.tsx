@@ -4,8 +4,13 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
 import { Switch } from "@heroui/switch";
-import { PlaystyleTagSelector } from "@/components/ui/PlaystyleTagSelector";
-import { useState } from "react";
+import { Input } from "@heroui/input";
+import { Link } from "@heroui/link";
+import { useState, useEffect } from "react";
+import { getUserProfile, saveUserProfile } from "@/lib/userProfile";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", section: "Overview" },
@@ -13,14 +18,66 @@ const navItems = [
   { label: "Simulate", href: "/simulate", section: "Team" },
   { label: "Report", href: "/report/example", section: "Team" },
   { label: "Champions", href: "/champions", section: "Team" },
-  { label: "Onboarding", href: "/onboarding", section: "Setup" },
 ];
 
 export default function AccountPage() {
-  const [fortniteTags, setFortniteTags] = useState<string[]>(["Builder", "Aggressive"]);
-  const [valorantTags, setValorantTags] = useState<string[]>(["Duelist", "Aggressive"]);
-  const [apexTags, setApexTags] = useState<string[]>(["Fragger"]);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [riotName, setRiotName] = useState("");
+  const [riotId, setRiotId] = useState("");
+  const [steamId, setSteamId] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // Load user profile on mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (user) {
+        setLoading(true);
+        const { profile, error } = await getUserProfile();
+        if (!error && profile) {
+          setRiotName(profile.riot_name || "");
+          setRiotId(profile.riot_id || "");
+          setSteamId(profile.steam_id || "");
+        }
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    };
+    loadProfile();
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    if (!user) {
+      setSaveMessage("Please log in to save your profile");
+      return;
+    }
+
+    setSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const { error } = await saveUserProfile({
+        riot_name: riotName || undefined,
+        riot_id: riotId || undefined,
+        steam_id: steamId || undefined,
+      });
+
+      if (error) {
+        setSaveMessage(`Error saving profile: ${error.message}`);
+      } else {
+        setSaveMessage("Profile saved successfully!");
+        setTimeout(() => setSaveMessage(null), 3000);
+      }
+    } catch (error) {
+      setSaveMessage(`Error saving profile: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleResetData = () => {
     if (confirm("Are you sure you want to reset all local data? This cannot be undone.")) {
@@ -45,35 +102,91 @@ export default function AccountPage() {
             <p className="text-sm text-[#cfcfcf]">
               Manage your profile and playstyle preferences.
             </p>
+            <div className="pt-4 border-t border-[#2b2b2b]">
+              <Link
+                as={NextLink}
+                href="/onboarding"
+                className="text-[#ff7a00] hover:text-[#ff8a20] text-sm"
+              >
+                Complete onboarding →
+              </Link>
+            </div>
           </CardBody>
         </Card>
 
-        {/* Games & Tags */}
+        {/* Games & Profiles */}
         <Card className="bg-[#1a1a1a] border border-[#2b2b2b]">
           <CardHeader>
-            <h2 className="text-xl font-semibold text-white">Games & Playstyle</h2>
+            <h2 className="text-xl font-semibold text-white">Gaming Profiles</h2>
           </CardHeader>
           <CardBody className="space-y-6">
+            {saveMessage && (
+              <div
+                className={`p-3 rounded-lg text-sm ${
+                  saveMessage.includes("Error")
+                    ? "bg-red-500/10 border border-red-500/50 text-red-400"
+                    : "bg-green-500/10 border border-green-500/50 text-green-400"
+                }`}
+              >
+                {saveMessage}
+              </div>
+            )}
             <div>
-              <h3 className="text-lg font-semibold text-white mb-3">Fortnite</h3>
-              <PlaystyleTagSelector
-                game="fortnite"
-                selected={fortniteTags}
-                onChange={setFortniteTags}
+              <h3 className="text-lg font-semibold text-white mb-3">League of Legends</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Riot Name"
+                  placeholder="Your Riot username"
+                  value={riotName}
+                  onChange={(e) => setRiotName(e.target.value)}
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                    label: "text-[#cfcfcf]",
+                  }}
+                  description="Your Riot Games username (the part before the #)"
+                  isDisabled={loading || saving}
+                />
+                <Input
+                  label="Riot Tag"
+                  placeholder="TAG"
+                  value={riotId}
+                  onChange={(e) => setRiotId(e.target.value.toUpperCase())}
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                    label: "text-[#cfcfcf]",
+                  }}
+                  description="Your Riot Games tag (the part after the #, e.g., NA1, EUW)"
+                  maxLength={5}
+                  isDisabled={loading || saving}
+                />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">Dota 2</h3>
+              <Input
+                label="Steam ID"
+                placeholder="76561198XXXXXXXXX"
+                value={steamId}
+                onChange={(e) => setSteamId(e.target.value)}
+                classNames={{
+                  input: "text-white",
+                  inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                  label: "text-[#cfcfcf]",
+                }}
+                description="Your Steam 64-bit ID (can be found on your Steam profile page)"
+                isDisabled={loading || saving}
               />
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-3">Valorant</h3>
-              <PlaystyleTagSelector
-                game="valorant"
-                selected={valorantTags}
-                onChange={setValorantTags}
-              />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-3">Apex Legends</h3>
-              <PlaystyleTagSelector game="apex" selected={apexTags} onChange={setApexTags} />
-            </div>
+            <Button
+              className="bg-[#ff7a00] text-white hover:bg-[#ff8a20]"
+              onPress={handleSaveProfile}
+              isLoading={saving}
+              isDisabled={loading || saving || !user}
+            >
+              Save Profile
+            </Button>
           </CardBody>
         </Card>
 

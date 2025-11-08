@@ -9,17 +9,38 @@ import { siteConfig } from "@/config/site";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import NextLink from "next/link";
+import { signIn } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - check onboarding status
-    const onboardingCompleted = typeof window !== "undefined" && localStorage.getItem("spawner_onboarding_completed") === "true";
-    router.push(onboardingCompleted ? "/dashboard" : "/onboarding");
+    setError(null);
+    setLoading(true);
+
+    try {
+      const { user, error: signInError } = await signIn(email, password);
+
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (user) {
+        // Check if user needs onboarding
+        const onboardingCompleted = typeof window !== "undefined" && localStorage.getItem("spawner_onboarding_completed") === "true";
+        router.push(onboardingCompleted ? "/dashboard" : "/onboarding");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred during login");
+      setLoading(false);
+    }
   };
 
   const handleContinueWithoutAccount = () => {
@@ -38,6 +59,11 @@ export default function LoginPage() {
             <p className="text-sm text-[#cfcfcf]">Welcome back to Spawner – AI</p>
           </CardHeader>
           <CardBody className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 type="email"
@@ -52,6 +78,7 @@ export default function LoginPage() {
                 }}
                 aria-label="Email address"
                 required
+                isDisabled={loading}
               />
               <Input
                 type="password"
@@ -66,10 +93,13 @@ export default function LoginPage() {
                 }}
                 aria-label="Password"
                 required
+                isDisabled={loading}
               />
               <Button
                 type="submit"
                 className="w-full bg-[#ff7a00] text-white hover:bg-[#ff8a20]"
+                isLoading={loading}
+                isDisabled={loading}
               >
                 Continue
               </Button>

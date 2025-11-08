@@ -19,7 +19,6 @@ const navItems = [
   { label: "Simulate", href: "/simulate", section: "Team" },
   { label: "Report", href: "/report/example", section: "Team" },
   { label: "Champions", href: "/champions", section: "Team" },
-  { label: "Onboarding", href: "/onboarding", section: "Setup" },
 ];
 
 // Calculate team strengths based on champions

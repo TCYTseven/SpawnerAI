@@ -3,13 +3,14 @@
 import { PageShell } from "@/components/layout/PageShell";
 import { StepWizard } from "@/components/ui/StepWizard";
 import { Input } from "@heroui/input";
-import { Select, SelectItem } from "@heroui/select";
-import { BehaviorSliders } from "@/components/ui/BehaviorSliders";
 import { Typewriter } from "@/components/ui/Typewriter";
 import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { saveUserProfile } from "@/lib/userProfile";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAffinity } from "@/lib/api";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", section: "Overview" },
@@ -17,15 +18,9 @@ const navItems = [
   { label: "Simulate", href: "/simulate", section: "Team" },
   { label: "Report", href: "/report/example", section: "Team" },
   { label: "Champions", href: "/champions", section: "Team" },
-  { label: "Onboarding", href: "/onboarding", section: "Setup" },
 ];
 
 const steps = [
-  {
-    key: "basics",
-    title: "Basics",
-    description: "Tell us about yourself",
-  },
   {
     key: "games",
     title: "Link Games",
@@ -35,11 +30,6 @@ const steps = [
     key: "fetching",
     title: "Analyzing",
     description: "Fetching your stats",
-  },
-  {
-    key: "behaviors",
-    title: "Behaviors",
-    description: "Describe your playstyle",
   },
   {
     key: "explain",
@@ -78,43 +68,68 @@ const leagueTerms = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [country, setCountry] = useState("");
-  const [fortniteUsername, setFortniteUsername] = useState("");
-  const [valorantUsername, setValorantUsername] = useState("");
-  const [apexUsername, setApexUsername] = useState("");
+  const [riotName, setRiotName] = useState("");
+  const [riotId, setRiotId] = useState("");
+  const [steamId, setSteamId] = useState("");
   const [fetchingProgress, setFetchingProgress] = useState(0);
-  const [behaviors, setBehaviors] = useState({
-    aggression: 50,
-    positioning: 50,
-    utility: 50,
-    clutch: 50,
-    awareness: 50,
-  });
+  const [fetchingError, setFetchingError] = useState<string | null>(null);
+  const [affinityData, setAffinityData] = useState<any>(null);
   const [completedTerms, setCompletedTerms] = useState<number[]>([]);
   const [currentTermIndex, setCurrentTermIndex] = useState(0);
 
-  // Simulate fetching stats
+  // Fetch stats from backend when reaching the analyzing step
   useEffect(() => {
-    if (currentStep === 2) {
-      setFetchingProgress(0);
-      const interval = setInterval(() => {
-        setFetchingProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setTimeout(() => {
-              setCurrentStep(3);
-            }, 500);
-            return 100;
+    if (currentStep === 1 && user) {
+      const fetchAffinity = async () => {
+        setFetchingProgress(0);
+        setFetchingError(null);
+        
+        // Simulate progress
+        const progressInterval = setInterval(() => {
+          setFetchingProgress((prev) => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 300);
+
+        try {
+          const { data, error } = await getAffinity();
+          
+          clearInterval(progressInterval);
+          setFetchingProgress(100);
+          
+          if (error) {
+            setFetchingError(error.message || "Failed to fetch affinity data");
+            return;
           }
-          return prev + 10;
-        });
-      }, 300);
-      return () => clearInterval(interval);
+          
+          if (data) {
+            // Store both Dota 2 and League data
+            setAffinityData(data);
+            // Move to next step after a short delay
+            setTimeout(() => {
+              setCurrentStep(2);
+            }, 500);
+          }
+        } catch (err) {
+          clearInterval(progressInterval);
+          setFetchingError(err instanceof Error ? err.message : "An error occurred");
+        }
+      };
+
+      // Small delay to ensure profile is saved before fetching
+      const timeout = setTimeout(() => {
+        fetchAffinity();
+      }, 500);
+
+      return () => clearTimeout(timeout);
     }
-  }, [currentStep]);
+  }, [currentStep, user]);
 
   // Handle typewriter completion - move to next term
   const handleTermComplete = (index: number) => {
@@ -126,11 +141,6 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
 
   const handleBack = () => {
     if (currentStep > 0) {
@@ -138,7 +148,47 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleFinish = () => {
+  const handleNext = async () => {
+    if (currentStep === 0) {
+      // Save user profile before moving to analyzing step
+      if (user) {
+        if (!steamId && (!riotName || !riotId)) {
+          alert("Please enter at least your Steam ID or Riot Name and ID");
+          return;
+        }
+
+        try {
+          const { error, success } = await saveUserProfile({
+            riot_name: riotName.trim() || undefined,
+            riot_id: riotId.trim() || undefined,
+            steam_id: steamId.trim() || undefined,
+          });
+
+          if (error) {
+            console.error("Error saving user profile:", error);
+            alert(`Failed to save profile: ${error.message}`);
+            return;
+          }
+
+          if (success) {
+            console.log("Profile saved successfully");
+          }
+        } catch (error) {
+          console.error("Exception saving user profile:", error);
+          alert(`Error saving profile: ${error instanceof Error ? error.message : "Unknown error"}`);
+          return;
+        }
+      } else {
+        alert("Please log in to save your profile");
+        return;
+      }
+      setCurrentStep(1);
+    } else if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleFinish = async () => {
     // Mark onboarding as completed
     if (typeof window !== "undefined") {
       localStorage.setItem("spawner_onboarding_completed", "true");
@@ -148,13 +198,15 @@ export default function OnboardingPage() {
 
   const canProceed = () => {
     if (currentStep === 0) {
-      return name.length > 0 && age.length > 0 && country.length > 0;
+      // Require at least Steam ID or Riot Name/ID
+      return steamId.length > 0 || (riotName.length > 0 && riotId.length > 0);
     }
-    if (currentStep === 1) {
-      return fortniteUsername.length > 0 || valorantUsername.length > 0 || apexUsername.length > 0;
-    }
-    if (currentStep === 4) {
+    if (currentStep === 2) {
       return completedTerms.length === leagueTerms.length;
+    }
+    // For analyzing step, don't allow manual progression
+    if (currentStep === 1) {
+      return false;
     }
     return true;
   };
@@ -163,198 +215,86 @@ export default function OnboardingPage() {
     switch (currentStep) {
       case 0:
         return (
-          <div className="space-y-4 max-w-md">
-            <Input
-              label="Name"
-              placeholder="Enter your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              classNames={{
-                input: "text-white",
-                inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
-                label: "text-[#cfcfcf]",
-              }}
-              aria-label="Name"
-            />
-            <Input
-              type="number"
-              label="Age"
-              placeholder="Enter your age"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              classNames={{
-                input: "text-white",
-                inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
-                label: "text-[#cfcfcf]",
-              }}
-              aria-label="Age"
-            />
-            <Input
-              label="Country"
-              placeholder="Enter your country"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              classNames={{
-                input: "text-white",
-                inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
-                label: "text-[#cfcfcf]",
-              }}
-              aria-label="Country"
-            />
-          </div>
-        );
-      case 1:
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl">
-            {/* Fortnite */}
+          <div className="space-y-6 max-w-2xl">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Link Your Gaming Profiles</h3>
+              <p className="text-[#cfcfcf]">Connect your Dota 2 and League of Legends accounts</p>
+            </div>
+
+            {/* League of Legends / Riot Games */}
             <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
               <CardBody className="p-6 space-y-4">
-                <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xl mb-4">
-                  FORTNITE
+                <div className="aspect-video bg-gradient-to-br from-[#0a1428] to-[#c89b3c] rounded-lg flex items-center justify-center text-white font-bold text-xl mb-4">
+                  LEAGUE OF LEGENDS
                 </div>
                 <Input
-                  label="Username"
-                  placeholder="Enter username"
-                  value={fortniteUsername}
-                  onChange={(e) => setFortniteUsername(e.target.value)}
+                  label="Riot Name"
+                  placeholder="Your Riot username"
+                  value={riotName}
+                  onChange={(e) => setRiotName(e.target.value)}
                   classNames={{
                     input: "text-white",
                     inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
                     label: "text-[#cfcfcf]",
                   }}
+                  description="Your Riot Games username (the part before the #)"
                 />
                 <Input
-                  type="number"
-                  label="Years Played"
-                  placeholder="0"
+                  label="Riot Tag"
+                  placeholder="TAG"
+                  value={riotId}
+                  onChange={(e) => setRiotId(e.target.value.toUpperCase())}
                   classNames={{
                     input: "text-white",
                     inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
                     label: "text-[#cfcfcf]",
                   }}
+                  description="Your Riot Games tag (the part after the #, e.g., NA1, EUW)"
+                  maxLength={5}
                 />
-                <Select
-                  label="Skill Type"
-                  placeholder="Select role"
-                  classNames={{
-                    trigger: "bg-[#0d0d0d] border-[#2b2b2b]",
-                    value: "text-white",
-                    label: "text-[#cfcfcf]",
-                  }}
-                >
-                  <SelectItem key="fragger">Fragger</SelectItem>
-                  <SelectItem key="in-game-leader">In Game Leader</SelectItem>
-                  <SelectItem key="support">Support</SelectItem>
-                  <SelectItem key="builder">Builder</SelectItem>
-                </Select>
               </CardBody>
             </Card>
 
-            {/* Apex Legends */}
+            {/* Dota 2 / Steam */}
             <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
               <CardBody className="p-6 space-y-4">
-                <div className="aspect-video bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white font-bold text-xl mb-4">
-                  APEX
+                <div className="aspect-video bg-gradient-to-br from-[#d32ce6] to-[#2e4756] rounded-lg flex items-center justify-center text-white font-bold text-xl mb-4">
+                  DOTA 2
                 </div>
                 <Input
-                  label="Username"
-                  placeholder="Enter username"
-                  value={apexUsername}
-                  onChange={(e) => setApexUsername(e.target.value)}
+                  label="Steam ID"
+                  placeholder="76561198XXXXXXXXX"
+                  value={steamId}
+                  onChange={(e) => setSteamId(e.target.value)}
                   classNames={{
                     input: "text-white",
                     inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
                     label: "text-[#cfcfcf]",
                   }}
+                  description="Your Steam 64-bit ID (can be found on your Steam profile page)"
                 />
-                <Input
-                  type="number"
-                  label="Years Played"
-                  placeholder="0"
-                  classNames={{
-                    input: "text-white",
-                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
-                    label: "text-[#cfcfcf]",
-                  }}
-                />
-                <Select
-                  label="Skill Type"
-                  placeholder="Select role"
-                  classNames={{
-                    trigger: "bg-[#0d0d0d] border-[#2b2b2b]",
-                    value: "text-white",
-                    label: "text-[#cfcfcf]",
-                  }}
-                >
-                  <SelectItem key="fragger">Fragger</SelectItem>
-                  <SelectItem key="support">Support</SelectItem>
-                  <SelectItem key="entry">Entry</SelectItem>
-                  <SelectItem key="igl">IGL</SelectItem>
-                </Select>
-              </CardBody>
-            </Card>
-
-            {/* Valorant */}
-            <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
-              <CardBody className="p-6 space-y-4">
-                <div className="aspect-video bg-gradient-to-br from-red-600 to-black rounded-lg flex items-center justify-center text-white font-bold text-2xl mb-4">
-                  V
-                </div>
-                <Input
-                  label="Username"
-                  placeholder="username#tag"
-                  value={valorantUsername}
-                  onChange={(e) => setValorantUsername(e.target.value)}
-                  classNames={{
-                    input: "text-white",
-                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
-                    label: "text-[#cfcfcf]",
-                  }}
-                />
-                <Input
-                  type="number"
-                  label="Years Played"
-                  placeholder="0"
-                  classNames={{
-                    input: "text-white",
-                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
-                    label: "text-[#cfcfcf]",
-                  }}
-                />
-                <Select
-                  label="Skill Type"
-                  placeholder="Select role"
-                  classNames={{
-                    trigger: "bg-[#0d0d0d] border-[#2b2b2b]",
-                    value: "text-white",
-                    label: "text-[#cfcfcf]",
-                  }}
-                >
-                  <SelectItem key="fragger">Fragger</SelectItem>
-                  <SelectItem key="support">Support</SelectItem>
-                  <SelectItem key="duelist">Duelist</SelectItem>
-                  <SelectItem key="controller">Controller</SelectItem>
-                  <SelectItem key="initiator">Initiator</SelectItem>
-                  <SelectItem key="sentinel">Sentinel</SelectItem>
-                </Select>
               </CardBody>
             </Card>
           </div>
         );
-      case 2:
+      case 1:
         const gamesToFetch = [
-          fortniteUsername && "Fortnite",
-          valorantUsername && "Valorant",
-          apexUsername && "Apex Legends",
+          (riotName && riotId) && "League of Legends",
+          steamId && "Dota 2",
         ].filter(Boolean);
 
         return (
           <div className="space-y-8 max-w-md">
             <div className="text-center">
               <div className="inline-block w-12 h-12 border-4 border-[#ff7a00] border-t-transparent rounded-full animate-spin mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">Fetching your stats...</h3>
-              <p className="text-[#cfcfcf]">Analyzing your gameplay data</p>
+              <h3 className="text-xl font-semibold text-white mb-2">Analyzing your gameplay...</h3>
+              <p className="text-[#cfcfcf]">Fetching match data and calculating your role affinity</p>
             </div>
+            {fetchingError && (
+              <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                {fetchingError}
+              </div>
+            )}
             <div className="space-y-4">
               {gamesToFetch.map((game, index) => (
                 <div key={index} className="space-y-2">
@@ -388,14 +328,7 @@ export default function OnboardingPage() {
             </div>
           </div>
         );
-      case 3:
-        return (
-          <BehaviorSliders
-            behaviors={behaviors}
-            onChange={(key, value) => setBehaviors({ ...behaviors, [key]: value })}
-          />
-        );
-      case 4:
+      case 2:
         return (
           <div className="space-y-8 max-w-3xl">
             {leagueTerms.map((term, index) => {
