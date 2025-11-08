@@ -6,7 +6,7 @@ import { Button } from "@heroui/button";
 import { Switch } from "@heroui/switch";
 import { Input } from "@heroui/input";
 import { Link } from "@heroui/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getUserProfile, saveUserProfile } from "@/lib/userProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -30,22 +30,28 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
 
-  // Load user profile on mount
+  // Load user profile on mount - ONLY ONCE
   useEffect(() => {
-    const loadProfile = async () => {
-      if (user) {
-        setLoading(true);
-        const { profile, error } = await getUserProfile();
-        if (!error && profile) {
-          setRiotName(profile.riot_name || "");
-          setRiotId(profile.riot_id || "");
-          setSteamId(profile.steam_id || "");
-        }
-        setLoading(false);
-      } else {
+    if (hasFetchedRef.current || !user) {
+      if (!user) {
         setLoading(false);
       }
+      return;
+    }
+
+    hasFetchedRef.current = true;
+
+    const loadProfile = async () => {
+      setLoading(true);
+      const { profile, error } = await getUserProfile();
+      if (!error && profile) {
+        setRiotName(profile.riot_name || "");
+        setRiotId(profile.riot_id || "");
+        setSteamId(profile.steam_id || "");
+      }
+      setLoading(false);
     };
     loadProfile();
   }, [user]);

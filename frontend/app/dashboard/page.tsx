@@ -243,38 +243,6 @@ ${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
           </Card>
         )}
 
-        {/* Key Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border-2 border-[#2b2b2b]">
-            <CardBody className="p-6">
-              <div className="text-sm text-[#cfcfcf] mb-1">Overall Win Rate</div>
-              <div className="text-3xl font-bold text-white mb-2">52.3%</div>
-              <div className="text-xs text-green-400">↑ 3.2% this month</div>
-            </CardBody>
-          </Card>
-          <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border-2 border-[#2b2b2b]">
-            <CardBody className="p-6">
-              <div className="text-sm text-[#cfcfcf] mb-1">Total Matches</div>
-              <div className="text-3xl font-bold text-white mb-2">592</div>
-              <div className="text-xs text-[#cfcfcf]">Across 3 games</div>
-            </CardBody>
-          </Card>
-          <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border-2 border-[#2b2b2b]">
-            <CardBody className="p-6">
-              <div className="text-sm text-[#cfcfcf] mb-1">Avg K/D Ratio</div>
-              <div className="text-3xl font-bold text-white mb-2">1.8</div>
-              <div className="text-xs text-green-400">↑ 0.3 this week</div>
-            </CardBody>
-          </Card>
-          <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border-2 border-[#2b2b2b]">
-            <CardBody className="p-6">
-              <div className="text-sm text-[#cfcfcf] mb-1">Skill Rating</div>
-              <div className="text-3xl font-bold text-white mb-2">76.8</div>
-              <div className="text-xs text-green-400">↑ 4.2 this month</div>
-            </CardBody>
-          </Card>
-        </div>
-
         {/* Game Tabs */}
         <Tabs
           selectedKey={selectedTab}
@@ -287,6 +255,7 @@ ${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
         >
           <Tab key="dota2" title="Dota 2">
             <div className="space-y-6 mt-6">
+
         {/* Competency Breakdown */}
         <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
           <CardHeader className="pb-3">

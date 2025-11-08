@@ -49,10 +49,10 @@ export default function RecommendationsPage() {
           return;
         }
 
-        if (data && data.affinity) {
+        if (data && data.league && data.league.affinity) {
           // The backend returns playstyle affinities: offense, tank, support, scout, hybrid
           // Map these to League of Legends roles
-          const playstyles = data.affinity;
+          const playstyles = data.league.affinity;
           
           // Map playstyles to League roles
           // This is a simplified mapping - you may want to refine this based on your model

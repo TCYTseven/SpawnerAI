@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import NextLink from "next/link";
 import { signUp } from "@/lib/auth";
+import { checkProfileExists } from "@/lib/api";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -27,13 +28,36 @@ export default function SignupPage() {
       const { user, error: signUpError } = await signUp(email, password);
 
       if (signUpError) {
-        setError(signUpError.message);
-        setLoading(false);
+        const errorMsg = signUpError.message || "";
+        const isDuplicate = 
+          errorMsg.includes("already registered") ||
+          errorMsg.includes("already in use") ||
+          errorMsg.includes("already exists") ||
+          (errorMsg.toLowerCase().includes("email") && errorMsg.toLowerCase().includes("already"));
+        
+        if (isDuplicate) {
+          setError("This email is already signed up. Redirecting to login...");
+          setTimeout(() => {
+            router.push(`/login?email=${encodeURIComponent(email)}`);
+          }, 1500);
+        } else {
+          setError(signUpError.message);
+          setLoading(false);
+        }
         return;
       }
 
       if (user) {
-        // Force redirect to onboarding after signup
+        const { error: profileError } = await checkProfileExists();
+        
+        if (profileError && profileError.status === 409) {
+          setError("This email already has a profile. Redirecting to login...");
+          setTimeout(() => {
+            router.push(`/login?email=${encodeURIComponent(email)}`);
+          }, 1500);
+          return;
+        }
+        
         router.push("/onboarding");
       }
     } catch (err) {
@@ -43,7 +67,6 @@ export default function SignupPage() {
   };
 
   const handleContinueWithoutAccount = () => {
-    // Mock - check onboarding status
     const onboardingCompleted = typeof window !== "undefined" && localStorage.getItem("spawner_onboarding_completed") === "true";
     router.push(onboardingCompleted ? "/dashboard" : "/onboarding");
   };
@@ -128,4 +151,3 @@ export default function SignupPage() {
     </div>
   );
 }
-
