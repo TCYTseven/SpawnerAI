@@ -6,23 +6,46 @@ load_dotenv()
 
 # dota 2
 def dota2matches(steamid=76561198420364098):
-    steamid -= 76561197960265728
+    try:
+        steamid -= 76561197960265728
 
-    response = requests.get(f"https://api.opendota.com/api/players/{steamid}/matches?limit=50")
+        response = requests.get(f"https://api.opendota.com/api/players/{steamid}/matches?limit=50")
+        
+        if response.status_code != 200:
+            print(f"OpenDota API error: {response.status_code} - {response.text}")
+            return []
+        
+        matches_json = response.json()
+        if not matches_json or not isinstance(matches_json, list):
+            print(f"OpenDota API returned invalid data: {matches_json}")
+            return []
 
-    herodata = herovalues.getstatsdota()
-    matchdata = []
-    for match in response.json():
-        matchdata.append([
-            herodata[match["hero_id"]],
-            match["kills"],
-            match["deaths"],
-            match["assists"],
-            (match["player_slot"] < 128 and match["radiant_win"]) or (match["player_slot"] >= 128 and not match["radiant_win"]),
-            match["start_time"]
-        ])
+        herodata = herovalues.getstatsdota()
+        matchdata = []
+        for match in matches_json:
+            try:
+                # Ensure hero_id exists in herodata
+                hero_id = match.get("hero_id")
+                if hero_id not in herodata:
+                    print(f"Warning: Hero ID {hero_id} not found in herodata, skipping match")
+                    continue
+                    
+                matchdata.append([
+                    herodata[hero_id],
+                    match.get("kills", 0),
+                    match.get("deaths", 0),
+                    match.get("assists", 0),
+                    (match.get("player_slot", 0) < 128 and match.get("radiant_win", False)) or (match.get("player_slot", 0) >= 128 and not match.get("radiant_win", False)),
+                    match.get("start_time", 0)
+                ])
+            except Exception as e:
+                print(f"Error processing match: {e}")
+                continue
 
-    return matchdata
+        return matchdata
+    except Exception as e:
+        print(f"Error fetching Dota 2 matches: {e}")
+        return []
 
 #league
 def leaguematches(riotname="sykkuno", riottag="leaf"):

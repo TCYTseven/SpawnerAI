@@ -16,10 +16,10 @@ supabase: Client = create_client(supabase_url, supabase_key)
 def get_user_profile(email: str):
     """
     Fetch user profile from Supabase database by email.
-    Returns dict with riot_name, riot_id, steam_id or None if not found.
+    Returns dict with riot_name, riot_id, steam_id, onboarding_json or None if not found.
     """
     try:
-        response = supabase.table("user_profiles").select("riot_name, riot_id, steam_id").eq("email", email).execute()
+        response = supabase.table("user_profiles").select("riot_name, riot_id, steam_id, onboarding_json").eq("email", email).execute()
         
         if response.data and len(response.data) > 0:
             return response.data[0]
