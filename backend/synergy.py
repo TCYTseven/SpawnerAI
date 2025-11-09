@@ -33,7 +33,7 @@ def calculate(skillsplr, skillsfriend):
         body=json.dumps({
             "messages": [{
                 "role": "user", 
-                "content": [{"text": "hello, tell me about why the moon is just as big as the sun"}]
+                "content": [{"text": prompt}]
             }],
             "inferenceConfig": {
                 "maxTokens": 200,
