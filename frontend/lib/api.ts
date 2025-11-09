@@ -234,3 +234,71 @@ export async function saveOnboardingData(data: {
     body: JSON.stringify(data),
   });
 }
+
+export async function getRiotUpdates() {
+  return apiRequest<{
+    success: boolean;
+    patches: Array<{
+      title: string;
+      publishedAt: string;
+      description: string;
+      media: {
+        url: string;
+        colors: {
+          primary?: string;
+          secondary?: string;
+        };
+      };
+      action: {
+        type: string;
+        url: string;
+      };
+      analytics: {
+        publishDate: string;
+        contentId: string;
+      };
+      category: string;
+    }>;
+    total: number;
+  }>("/getRiotUpdates", {
+    method: "GET",
+  });
+}
+
+export async function analyzePatch(data: {
+  patch_title: string;
+  patch_description?: string;
+  patch_url?: string;
+  compare_with_previous?: boolean;
+}) {
+  return apiRequest<{
+    success: boolean;
+    patch_title: string;
+    top_champions: Array<{
+      champion_id: string;
+      games: number;
+    }>;
+    analysis: {
+      summary: string;
+      champions: Array<{
+        champion_id: string;
+        impact: string;
+        analysis: string;
+        recommendations: string;
+        suggested_replacements: string[];
+      }>;
+      meta_shift: string;
+      role_impact: {
+        top?: string;
+        jungle?: string;
+        mid?: string;
+        adc?: string;
+        support?: string;
+      };
+    };
+    user_email: string;
+  }>("/analyzePatch", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
