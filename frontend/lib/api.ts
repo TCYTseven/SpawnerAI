@@ -105,24 +105,16 @@ export async function getMatchHistory() {
   });
 }
 
-export async function getSynergy(otherUserEmail: string) {
+export async function getSynergy(playerEmails: string[]) {
   return apiRequest<{
-    synergy: {
-      dota2?: {
-        synergy: number;
-        reasoning: string;
-      };
-      league?: {
-        synergy: number;
-        reasoning: string;
-      };
-    };
-    other_user_email: string;
-    current_user_email: string;
+    success: boolean;
+    player_emails: string[];
+    synergy_output: any;
+    squad_data: { [email: string]: any };
   }>("/getSynergy", {
     method: "POST",
     body: JSON.stringify({
-      other_user_email: otherUserEmail,
+      player_emails: playerEmails,
     }),
   });
 }
@@ -155,6 +147,19 @@ export async function addSquadMember(email: string) {
   });
 }
 
+export async function removeSquadMember(email: string) {
+  return apiRequest<{
+    success: boolean;
+    message: string;
+    email: string;
+  }>("/removeSquadMember", {
+    method: "POST",
+    body: JSON.stringify({
+      other_user_email: email,
+    }),
+  });
+}
+
 export async function getSuggestedRole(email: string) {
   return apiRequest<{
     email: string;
@@ -170,6 +175,36 @@ export async function getSuggestedRole(email: string) {
     method: "POST",
     body: JSON.stringify({
       other_user_email: email,
+    }),
+  });
+}
+
+export async function getSquadSynergy(playerEmails: string[]) {
+  return apiRequest<{
+    success: boolean;
+    squad_members: string[];
+    synergy_data: {
+      players: {
+        [email: string]: {
+          role: string;
+          reasoning: string;
+        };
+      };
+      overall_synergy_score: number;
+      confidence: number;
+      rationale: string[];
+      metadata: {
+        llm_version: string;
+        generated_at: string;
+      };
+    };
+    ai_outputs: {
+      [email: string]: any;
+    };
+  }>("/getSquadSynergy", {
+    method: "POST",
+    body: JSON.stringify({
+      player_emails: playerEmails,
     }),
   });
 }
@@ -232,6 +267,27 @@ export async function saveOnboardingData(data: {
   }>("/saveOnboardingData", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export async function initialAI() {
+  return apiRequest<{
+    success: boolean;
+    message: string;
+    email: string;
+    ai_output: any;
+  }>("/initialAI", {
+    method: "POST",
+  });
+}
+
+export async function getAIOutput() {
+  return apiRequest<{
+    success: boolean;
+    email: string;
+    ai_output: any;
+  }>("/getAIOutput", {
+    method: "POST",
   });
 }
 

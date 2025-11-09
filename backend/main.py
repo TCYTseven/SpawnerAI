@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
-import fetchdata, model, synergy
+import fetchdata, model, aws, cleanJSON
 from auth import get_current_user, get_optional_user
 from database import get_user_profile, get_user_by_email
 from datetime import datetime
@@ -20,6 +20,9 @@ def convert_affinity_to_python_types(affinity_dict: Dict[str, Any]) -> Dict[str,
 
 class SynergyRequest(BaseModel):
     other_user_email: str
+
+class SquadSynergyRequest(BaseModel):
+    player_emails: List[str]
 
 class UserProfileRequest(BaseModel):
     riot_name: str | None = None
@@ -340,12 +343,13 @@ def get_match_history(
 
 @app.post("/getSynergy")
 def get_synergy(
-    request: SynergyRequest,
+    request: SquadSynergyRequest,
     user: dict = Depends(get_current_user)
 ):
     """
-    Get team synergy analysis between current user and another user.
-    Calculates synergy based on both players' affinities.
+    Get squad synergy analysis for multiple players.
+    Requires at least 2 players. Supports up to 5 players.
+    Calls aws.synergy() with all squad members' ai_output data.
     """
     try:
         current_user_email = user.get("email")
@@ -355,155 +359,60 @@ def get_synergy(
                 detail="User email not found in token"
             )
         
-        other_user = get_user_by_email(request.other_user_email)
-        if not other_user:
-            raise HTTPException(
-                status_code=404,
-                detail=f"User with email {request.other_user_email} not found"
-            )
+        player_emails = request.player_emails
         
-        current_user_profile = get_user_profile(current_user_email)
-        if not current_user_profile:
-            raise HTTPException(
-                status_code=404,
-                detail="Your profile not found. Please complete onboarding first."
-            )
-        
-        other_user_profile = get_user_profile(request.other_user_email)
-        if not other_user_profile:
-            raise HTTPException(
-                status_code=404,
-                detail=f"User profile for {request.other_user_email} not found."
-            )
-        
-        current_affinity = {}
-        other_affinity = {}
-        
-        steam_id = current_user_profile.get("steam_id")
-        riot_name = current_user_profile.get("riot_name")
-        riot_id = current_user_profile.get("riot_id")
-        
-        if steam_id or (riot_name and riot_id):
-            current_affinity_result = {
-                "dota2": None,
-                "league": None
-            }
-            
-            if steam_id:
-                try:
-                    steamid_int = int(steam_id)
-                    dotamatches = fetchdata.dota2matches(steamid_int)
-                    if dotamatches:
-                        affinity_raw = model.predict(dotamatches)
-                        current_affinity_result["dota2"] = convert_affinity_to_python_types(affinity_raw)
-                except (ValueError, Exception):
-                    pass
-            
-            if riot_name and riot_id:
-                try:
-                    leaguematches = fetchdata.leaguematches(riot_name, riot_id)
-                    if leaguematches:
-                        affinity_raw = model.predict(leaguematches)
-                        current_affinity_result["league"] = convert_affinity_to_python_types(affinity_raw)
-                except Exception:
-                    pass
-            
-            current_affinity = current_affinity_result
-        
-        steam_id_other = other_user_profile.get("steam_id")
-        riot_name_other = other_user_profile.get("riot_name")
-        riot_id_other = other_user_profile.get("riot_id")
-        
-        if steam_id_other or (riot_name_other and riot_id_other):
-            other_affinity_result = {
-                "dota2": None,
-                "league": None
-            }
-            
-            if steam_id_other:
-                try:
-                    steamid_int = int(steam_id_other)
-                    dotamatches = fetchdata.dota2matches(steamid_int)
-                    if dotamatches:
-                        affinity_raw = model.predict(dotamatches)
-                        other_affinity_result["dota2"] = convert_affinity_to_python_types(affinity_raw)
-                except (ValueError, Exception):
-                    pass
-            
-            if riot_name_other and riot_id_other:
-                try:
-                    leaguematches = fetchdata.leaguematches(riot_name_other, riot_id_other)
-                    if leaguematches:
-                        affinity_raw = model.predict(leaguematches)
-                        other_affinity_result["league"] = convert_affinity_to_python_types(affinity_raw)
-                except Exception:
-                    pass
-            
-            other_affinity = other_affinity_result
-        
-        if not current_affinity or not other_affinity:
-            raise HTTPException(
-                status_code=404,
-                detail="Could not fetch affinity data for one or both users"
-            )
-        
-        synergy_results = {}
-        
-        if current_affinity.get("dota2") and other_affinity.get("dota2"):
-            current_skills = [
-                current_affinity["dota2"].get("offense", 0),
-                current_affinity["dota2"].get("tank", 0),
-                current_affinity["dota2"].get("support", 0),
-                current_affinity["dota2"].get("scout", 0),
-                current_affinity["dota2"].get("hybrid", 0),
-            ]
-            other_skills = [
-                other_affinity["dota2"].get("offense", 0),
-                other_affinity["dota2"].get("tank", 0),
-                other_affinity["dota2"].get("support", 0),
-                other_affinity["dota2"].get("scout", 0),
-                other_affinity["dota2"].get("hybrid", 0),
-            ]
-            
-            synergy_result = synergy.calculate(current_skills, other_skills)
-            synergy_data = json.loads(synergy_result)
-            synergy_results["dota2"] = synergy_data
-        
-        if current_affinity.get("league") and other_affinity.get("league"):
-            current_skills = [
-                current_affinity["league"].get("offense", 0),
-                current_affinity["league"].get("tank", 0),
-                current_affinity["league"].get("support", 0),
-                current_affinity["league"].get("scout", 0),
-                current_affinity["league"].get("hybrid", 0),
-            ]
-            other_skills = [
-                other_affinity["league"].get("offense", 0),
-                other_affinity["league"].get("tank", 0),
-                other_affinity["league"].get("support", 0),
-                other_affinity["league"].get("scout", 0),
-                other_affinity["league"].get("hybrid", 0),
-            ]
-            
-            synergy_result = synergy.calculate(current_skills, other_skills)
-            synergy_data = json.loads(synergy_result)
-            synergy_results["league"] = synergy_data
-        
-        if not synergy_results:
+        if len(player_emails) < 2:
             raise HTTPException(
                 status_code=400,
-                detail="Could not calculate synergy - no common games played"
+                detail="At least 2 players required for synergy analysis"
             )
         
+        if len(player_emails) > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 5 players supported for synergy analysis"
+            )
+        
+        squad_data = {}
+        squad_data_for_synergy = {}
+        
+        for email in player_emails:
+            profile = get_user_profile(email)
+            if not profile:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Profile not found for {email}"
+                )
+            
+            ai_output = profile.get("ai_output")
+            if not ai_output:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"User {email} has not completed onboarding. AI recommendations required."
+                )
+            
+            squad_data[email] = ai_output
+            
+            ai_output_cleaned = {k: v for k, v in ai_output.items() if k not in ["primary_role", "secondary_role"]}
+            squad_data_for_synergy[email] = ai_output_cleaned
+        
+        aws_response = aws.synergy(squad_data_for_synergy)
+        
+        synergy_output = cleanJSON.convertJSON(aws_response)
+        
         return {
-            "synergy": synergy_results,
-            "other_user_email": request.other_user_email,
-            "current_user_email": current_user_email
+            "success": True,
+            "player_emails": player_emails,
+            "synergy_output": synergy_output,
+            "squad_data": squad_data
         }
     
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error calculating synergy: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error calculating synergy: {str(e)}")
 
 @app.post("/getSquadMembers")
@@ -537,6 +446,18 @@ def get_squad_members(
             "is_self": True
         })
         
+        squad_list = profile.get("squad", [])
+        if squad_list and isinstance(squad_list, list):
+            for squad_email in squad_list:
+                squad_profile = get_user_profile(squad_email)
+                if squad_profile:
+                    members.append({
+                        "email": squad_email,
+                        "riot_name": squad_profile.get("riot_name"),
+                        "riot_id": squad_profile.get("riot_id"),
+                        "is_self": False
+                    })
+        
         return {"members": members}
     
     except HTTPException:
@@ -551,6 +472,7 @@ def add_squad_member(
 ):
     """
     Add a player to the current user's squad by email.
+    Supports up to 5 squad members (including self).
     """
     try:
         current_user_email = user.get("email")
@@ -573,11 +495,43 @@ def add_squad_member(
                 detail=f"User with email {request.other_user_email} not found"
             )
         
+        profile = get_user_profile(current_user_email)
+        if not profile:
+            raise HTTPException(
+                status_code=404,
+                detail="User profile not found"
+            )
+        
+        squad_list = profile.get("squad", [])
+        if not isinstance(squad_list, list):
+            squad_list = []
+        
+        if len(squad_list) >= 4:
+            raise HTTPException(
+                status_code=400,
+                detail="Squad is full (maximum 5 players including yourself)"
+            )
+        
+        if request.other_user_email not in squad_list:
+            squad_list.append(request.other_user_email)
+            
+            from database import supabase
+            response = supabase.table("user_profiles").update({
+                "squad": squad_list
+            }).eq("email", current_user_email).execute()
+            
+            if not response.data:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to add squad member"
+                )
+        
+        other_profile = get_user_profile(request.other_user_email)
         return {
             "message": "Member added successfully",
             "email": request.other_user_email,
-            "riot_name": other_user.get("riot_name"),
-            "riot_id": other_user.get("riot_id"),
+            "riot_name": other_profile.get("riot_name"),
+            "riot_id": other_profile.get("riot_id"),
             "is_self": False
         }
     
@@ -585,6 +539,63 @@ def add_squad_member(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error adding squad member: {str(e)}")
+
+@app.post("/removeSquadMember")
+def remove_squad_member(
+    request: SynergyRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Remove a player from the current user's squad by email.
+    """
+    try:
+        current_user_email = user.get("email")
+        if not current_user_email:
+            raise HTTPException(
+                status_code=401,
+                detail="User email not found in token"
+            )
+        
+        profile = get_user_profile(current_user_email)
+        if not profile:
+            raise HTTPException(
+                status_code=404,
+                detail="User profile not found"
+            )
+        
+        squad_list = profile.get("squad", [])
+        if not isinstance(squad_list, list):
+            squad_list = []
+        
+        if request.other_user_email not in squad_list:
+            raise HTTPException(
+                status_code=400,
+                detail=f"User {request.other_user_email} is not in your squad"
+            )
+        
+        squad_list.remove(request.other_user_email)
+        
+        from database import supabase
+        response = supabase.table("user_profiles").update({
+            "squad": squad_list
+        }).eq("email", current_user_email).execute()
+        
+        if not response.data:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to remove squad member"
+            )
+        
+        return {
+            "success": True,
+            "message": "Member removed successfully",
+            "email": request.other_user_email
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing squad member: {str(e)}")
 
 @app.post("/getSuggestedRole")
 def get_suggested_role(
@@ -655,70 +666,68 @@ def get_suggested_role(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting suggested role: {str(e)}")
 
-@app.post("/initializeUserProfile")
-def initialize_user_profile(
-    profile_data: UserProfileRequest,
+@app.post("/getSquadSynergy")
+def get_squad_synergy(
+    request: SquadSynergyRequest,
     user: dict = Depends(get_current_user)
 ):
     """
-    Initialize or update user profile after signup.
-    This endpoint creates/updates the user_profiles table entry.
-    Requires authentication.
+    Get squad synergy analysis for multiple players (2-5 players).
+    Uses AWS LLM to analyze team composition and suggest roles.
+    Returns synergy score, overall rationale, and per-player role suggestions.
     """
     try:
-        user_email = user.get("email")
-        if not user_email:
+        if len(request.player_emails) < 2:
             raise HTTPException(
-                status_code=401,
-                detail="User email not found in token"
+                status_code=400,
+                detail="Squad requires at least 2 players"
             )
         
-        existing_profile = get_user_profile(user_email)
-        
-        from database import supabase
-        
-        profile_to_save = {
-            "email": user_email,
-        }
-        
-        if profile_data.riot_name and profile_data.riot_name.strip():
-            profile_to_save["riot_name"] = profile_data.riot_name.strip()
-        
-        if profile_data.riot_id and profile_data.riot_id.strip():
-            profile_to_save["riot_id"] = profile_data.riot_id.strip()
-        
-        if profile_data.steam_id and profile_data.steam_id.strip():
-            profile_to_save["steam_id"] = profile_data.steam_id.strip()
-        
-        if existing_profile:
-            response = supabase.table("user_profiles").update(
-                profile_to_save
-            ).eq("email", user_email).execute()
-        else:
-            response = supabase.table("user_profiles").insert(
-                profile_to_save
-            ).execute()
-        
-        if not response.data:
+        if len(request.player_emails) > 5:
             raise HTTPException(
-                status_code=500,
-                detail="Failed to save profile"
+                status_code=400,
+                detail="Squad cannot exceed 5 players"
             )
+        
+        squad_data = {}
+        
+        for email in request.player_emails:
+            profile = get_user_profile(email)
+            if not profile:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Profile not found for {email}"
+                )
+            
+            ai_output = profile.get("ai_output")
+            if not ai_output:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No AI output found for {email}. Please complete onboarding first."
+                )
+            
+            squad_data[email] = ai_output
+        
+        synergy_input = {email: data for email, data in squad_data.items()}
+        aws_response = aws.synergy(synergy_input)
+        
+        synergy_result = cleanJSON.convertJSON(aws_response)
         
         return {
             "success": True,
-            "message": "Profile initialized successfully",
-            "email": user_email
+            "squad_members": list(request.player_emails),
+            "synergy_data": synergy_result,
+            "ai_outputs": squad_data
         }
     
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error initializing user profile: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error initializing profile: {str(e)}"
-        )
+        print(f"Error calculating squad synergy: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error calculating squad synergy: {str(e)}")
+
 
 @app.post("/saveOnboardingData")
 def save_onboarding_data(
@@ -820,6 +829,165 @@ def save_onboarding_data(
         raise HTTPException(
             status_code=500,
             detail=f"Error saving onboarding data: {str(e)}"
+        )
+
+@app.post("/initialAI")
+def initial_ai(user: dict = Depends(get_current_user)):
+    """
+    Generate initial AI recommendations based on onboarding data and skill affinities.
+    Calls aws.onboarding() with skills and onboarding data, cleans JSON,
+    adds skills_dashboard, and saves to ai_output column in Supabase.
+    Requires authentication.
+    """
+    try:
+        user_email = user.get("email")
+        if not user_email:
+            raise HTTPException(
+                status_code=401,
+                detail="User email not found in token"
+            )
+        
+        # Get user profile to retrieve onboarding_json
+        profile = get_user_profile(user_email)
+        if not profile:
+            raise HTTPException(
+                status_code=404,
+                detail="User profile not found"
+            )
+        
+        onboarding_json = profile.get("onboarding_json")
+        if not onboarding_json:
+            raise HTTPException(
+                status_code=400,
+                detail="No onboarding data found. Please complete onboarding first."
+            )
+        
+        # Get affinity data from match history
+        skills_affinity = {
+            "dota2": None,
+            "league": None
+        }
+        
+        steam_id = profile.get("steam_id")
+        riot_name = profile.get("riot_name")
+        riot_id = profile.get("riot_id")
+        
+        # Fetch Dota 2 affinity
+        if steam_id:
+            try:
+                steamid_int = int(steam_id)
+                dotamatches = fetchdata.dota2matches(steamid_int)
+                if dotamatches:
+                    affinity_raw = model.predict(dotamatches)
+                    skills_affinity["dota2"] = convert_affinity_to_python_types(affinity_raw)
+            except (ValueError, Exception) as e:
+                print(f"Error fetching Dota 2 affinity: {e}")
+                pass
+        
+        # Fetch League affinity
+        if riot_name and riot_id:
+            try:
+                leaguematches = fetchdata.leaguematches(riot_name, riot_id)
+                if leaguematches:
+                    affinity_raw = model.predict(leaguematches)
+                    skills_affinity["league"] = convert_affinity_to_python_types(affinity_raw)
+            except Exception as e:
+                print(f"Error fetching League affinity: {e}")
+                pass
+        
+        # Call AWS onboarding with skills and onboarding data
+        aws_response = aws.onboarding(skills_affinity, onboarding_json)
+        
+        # Clean JSON response
+        ai_output = cleanJSON.convertJSON(aws_response)
+        
+        # Get all skills from model.py STYLES
+        all_skills = {
+            "offense": skills_affinity.get("dota2", {}).get("offense", 0) if skills_affinity.get("dota2") else 0,
+            "tank": skills_affinity.get("dota2", {}).get("tank", 0) if skills_affinity.get("dota2") else 0,
+            "support": skills_affinity.get("dota2", {}).get("support", 0) if skills_affinity.get("dota2") else 0,
+            "scout": skills_affinity.get("dota2", {}).get("scout", 0) if skills_affinity.get("dota2") else 0,
+            "hybrid": skills_affinity.get("dota2", {}).get("hybrid", 0) if skills_affinity.get("dota2") else 0,
+        }
+        
+        # Add skills_dashboard to AI output
+        ai_output["skills_dashboard"] = all_skills
+        
+        # Save to Supabase
+        from database import supabase
+        
+        response = supabase.table("user_profiles").update({
+            "ai_output": ai_output
+        }).eq("email", user_email).execute()
+        
+        if not response.data:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to save AI output"
+            )
+        
+        return {
+            "success": True,
+            "message": "AI recommendations generated successfully",
+            "email": user_email,
+            "ai_output": ai_output
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in initialAI: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating AI recommendations: {str(e)}"
+        )
+
+@app.post("/getAIOutput")
+def get_ai_output(user: dict = Depends(get_current_user)):
+    """
+    Retrieve the saved AI recommendations for the current user.
+    Returns the ai_output data including primary role, synergy profile,
+    recommended champions, and next actions.
+    Requires authentication.
+    """
+    try:
+        user_email = user.get("email")
+        if not user_email:
+            raise HTTPException(
+                status_code=401,
+                detail="User email not found in token"
+            )
+        
+        # Get user profile to retrieve ai_output
+        profile = get_user_profile(user_email)
+        if not profile:
+            raise HTTPException(
+                status_code=404,
+                detail="User profile not found"
+            )
+        
+        ai_output = profile.get("ai_output")
+        if not ai_output:
+            raise HTTPException(
+                status_code=404,
+                detail="No AI recommendations found. Please complete onboarding first."
+            )
+        
+        return {
+            "success": True,
+            "email": user_email,
+            "ai_output": ai_output
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error retrieving AI output: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving AI recommendations: {str(e)}"
         )
 
 @app.get("/getRiotUpdates")
@@ -936,7 +1104,7 @@ def analyze_patch(
         top_champions = sorted(champion_counts.items(), key=lambda x: x[1], reverse=True)[:5]
         
         # Use AWS Bedrock to analyze patch impact
-        import synergy as synergy_module
+        import backend.aws as synergy_module
         
         # Create a prompt for patch analysis
         patch_info = f"Patch: {request.patch_title}\n"

@@ -8,7 +8,7 @@ import { Typewriter } from "@/components/ui/Typewriter";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { initializeUserProfile, saveOnboardingData } from "@/lib/api";
+import { initializeUserProfile, saveOnboardingData, initialAI } from "@/lib/api";
 import Image from "next/image";
 
 const navItems = [
@@ -17,7 +17,7 @@ const navItems = [
   { label: "Simulate", href: "/simulate", section: "AGENTS" },
   { label: "META", href: "/meta", section: "AGENTS" },
   { label: "Report", href: "/report/example", section: "Team" },
-  { label: "Champions", href: "/champions", section: "Team" },
+  { label: "Recommendations", href: "/recommendations", section: "Team" },
 ];
 
 const steps = [
@@ -253,6 +253,18 @@ export default function OnboardingPage() {
         if (error) {
           console.error("Error saving onboarding data:", error);
           // Still proceed even if save fails
+        } else {
+          // Call initialAI after saveOnboardingData completes
+          try {
+            const { error: aiError } = await initialAI();
+            if (aiError) {
+              console.error("Error generating AI recommendations:", aiError);
+              // Still proceed even if AI generation fails
+            }
+          } catch (aiErr) {
+            console.error("Exception generating AI recommendations:", aiErr);
+            // Still proceed even if AI generation fails
+          }
         }
       } catch (err) {
         console.error("Exception saving onboarding data:", err);

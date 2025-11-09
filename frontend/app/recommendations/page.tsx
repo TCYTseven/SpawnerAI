@@ -2,12 +2,12 @@
 
 import { PageShell } from "@/components/layout/PageShell";
 import { Card, CardBody, CardHeader } from "@heroui/card";
-import { RoleAffinityBar } from "@/components/ui/RoleAffinityBar";
-import { ChampionCard } from "@/components/ui/ChampionCard";
-import { getChampionsForRole } from "@/types/mock";
+import { Chip } from "@heroui/chip";
+import { Progress } from "@heroui/progress";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { getAffinity } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { getAIOutput } from "@/lib/api";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", section: "Overview" },
@@ -15,104 +15,97 @@ const navItems = [
   { label: "Simulate", href: "/simulate", section: "AGENTS" },
   { label: "META", href: "/meta", section: "AGENTS" },
   { label: "Report", href: "/report/example", section: "Team" },
-  { label: "Champions", href: "/champions", section: "Team" },
+  { label: "Recommendations", href: "/recommendations", section: "Team" },
 ];
 
+interface AIOutput {
+  primary_role: string;
+  secondary_role: string;
+  synergy_profile: {
+    style_vector: {
+      aggression: number;
+      positioning: number;
+      teamplay: number;
+      utility: number;
+      clutch: number;
+    };
+    derived_from: string[];
+  };
+  champion_shortlist: Array<{
+    name: string;
+    why: string;
+    difficulty: string;
+  }>;
+  next_actions: string[];
+  rationale: string[];
+  confidence: number;
+  skills_dashboard: {
+    offense: number;
+    tank: number;
+    support: number;
+    scout: number;
+    hybrid: number;
+  };
+}
+
 export default function RecommendationsPage() {
+  const router = useRouter();
   const { user } = useAuth();
-  const [roleAffinity, setRoleAffinity] = useState({
-    Top: 0,
-    Jungle: 0,
-    Mid: 0,
-    ADC: 0,
-    Support: 0,
-  });
+  const [aiOutput, setAiOutput] = useState<AIOutput | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAffinity = async () => {
+    const fetchRecommendations = async () => {
       if (!user) {
-        setError("Please log in to view your recommendations");
         setLoading(false);
         return;
       }
 
-      setLoading(true);
-      setError(null);
-
       try {
-        const { data, error: apiError } = await getAffinity();
-
+        const { data, error: apiError } = await getAIOutput();
         if (apiError) {
-          setError(apiError.message || "Failed to fetch affinity data");
-          setLoading(false);
-          return;
-        }
-
-        if (data && data.league && data.league.affinity) {
-          // The backend returns playstyle affinities: offense, tank, support, scout, hybrid
-          // Map these to League of Legends roles
-          const playstyles = data.league.affinity;
-          
-          // Map playstyles to League roles
-          // This is a simplified mapping - you may want to refine this based on your model
-          setRoleAffinity({
-            Top: (playstyles.tank || 0) * 0.4 + (playstyles.hybrid || 0) * 0.3 + (playstyles.offense || 0) * 0.3,
-            Jungle: (playstyles.scout || 0) * 0.4 + (playstyles.hybrid || 0) * 0.3 + (playstyles.offense || 0) * 0.3,
-            Mid: (playstyles.offense || 0) * 0.5 + (playstyles.scout || 0) * 0.3 + (playstyles.hybrid || 0) * 0.2,
-            ADC: (playstyles.offense || 0) * 0.6 + (playstyles.hybrid || 0) * 0.4,
-            Support: (playstyles.support || 0) * 0.6 + (playstyles.tank || 0) * 0.2 + (playstyles.hybrid || 0) * 0.2,
-          });
+          setError(apiError.message);
+        } else if (data?.ai_output) {
+          setAiOutput(data.ai_output);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+        setError(err instanceof Error ? err.message : "Failed to load recommendations");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAffinity();
+    fetchRecommendations();
   }, [user]);
-
-  const bestRole = Object.entries(roleAffinity).reduce((a, b) => (a[1] > b[1] ? a : b))[0] as
-    | "Top"
-    | "Jungle"
-    | "Mid"
-    | "ADC"
-    | "Support";
 
   if (loading) {
     return (
       <PageShell
-        title="Your Recommendations"
+        title="Recommendations"
         breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Recommendations" }]}
         navItems={navItems}
       >
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="inline-block w-12 h-12 border-4 border-[#ff7a00] border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-[#cfcfcf]">Loading your recommendations...</p>
-          </div>
+        <div className="flex items-center justify-center h-96">
+          <p className="text-[#cfcfcf]">Loading your recommendations...</p>
         </div>
       </PageShell>
     );
   }
 
-  if (error) {
+  if (error || !aiOutput) {
     return (
       <PageShell
-        title="Your Recommendations"
+        title="Recommendations"
         breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Recommendations" }]}
         navItems={navItems}
       >
-        <div className="space-y-8">
-          <Card className="bg-[#1a1a1a] border-2 border-red-500/50">
-            <CardBody>
-              <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
-                <p className="font-semibold mb-2">Error loading recommendations</p>
-                <p className="text-sm">{error}</p>
-              </div>
+        <div className="flex items-center justify-center h-96">
+          <Card className="bg-[#1a1a1a] border-2 border-[#ff4655] max-w-md">
+            <CardBody className="p-6">
+              <p className="text-[#ff4655]">
+                {error || "No recommendations found. Please complete onboarding first."}
+              </p>
             </CardBody>
           </Card>
         </div>
@@ -120,57 +113,222 @@ export default function RecommendationsPage() {
     );
   }
 
+  const getRoleColor = (role: string) => {
+    const colors: { [key: string]: string } = {
+      Top: "#ff4655",
+      Jungle: "#d32ce6",
+      Mid: "#ff7a00",
+      ADC: "#00d4ff",
+      Support: "#00ff88",
+    };
+    return colors[role] || "#cfcfcf";
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Low":
+        return "bg-green-500/20 text-green-400";
+      case "Medium":
+        return "bg-yellow-500/20 text-yellow-400";
+      case "High":
+        return "bg-red-500/20 text-red-400";
+      default:
+        return "bg-[#1a1a1a] text-[#cfcfcf]";
+    }
+  };
+
+  const formatSkillName = (name: string) => {
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+
   return (
     <PageShell
-      title="Your Recommendations"
+      title="Recommendations"
       breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Recommendations" }]}
       navItems={navItems}
     >
       <div className="space-y-8">
-        {/* Role Affinity */}
+        {/* Primary Role Section */}
         <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
           <CardHeader>
-            <h2 className="text-2xl font-bold text-white">Your Role Affinity</h2>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-white">Your Recommended Role</h2>
+              <p className="text-[#cfcfcf]">Primary and secondary roles that match your playstyle</p>
+            </div>
           </CardHeader>
-          <CardBody>
-            <RoleAffinityBar affinity={roleAffinity} />
-            <div className="mt-6 p-4 bg-[#0d0d0d] rounded-lg border border-[#2b2b2b]">
-              <p className="text-white font-semibold mb-2">
-                Best Fit: <span className="text-[#ff7a00]">{bestRole}</span>
-              </p>
-              <p className="text-sm text-[#cfcfcf]">
-                Based on your Dota 2 and League of Legends match history, {bestRole} lane is your best match.
-              </p>
+          <CardBody className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Primary Role */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-[#cfcfcf]">PRIMARY ROLE</p>
+                <div
+                  className="p-6 rounded-lg border-2 flex items-center justify-center"
+                  style={{
+                    borderColor: getRoleColor(aiOutput.primary_role),
+                    backgroundColor: getRoleColor(aiOutput.primary_role) + "15",
+                  }}
+                >
+                  <span
+                    className="text-3xl font-bold"
+                    style={{ color: getRoleColor(aiOutput.primary_role) }}
+                  >
+                    {aiOutput.primary_role}
+                  </span>
+                </div>
+              </div>
+
+              {/* Secondary Role */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-[#cfcfcf]">SECONDARY ROLE</p>
+                <div
+                  className="p-6 rounded-lg border-2 flex items-center justify-center"
+                  style={{
+                    borderColor: getRoleColor(aiOutput.secondary_role),
+                    backgroundColor: getRoleColor(aiOutput.secondary_role) + "15",
+                  }}
+                >
+                  <span
+                    className="text-3xl font-bold"
+                    style={{ color: getRoleColor(aiOutput.secondary_role) }}
+                  >
+                    {aiOutput.secondary_role}
+                  </span>
+                </div>
+              </div>
             </div>
           </CardBody>
         </Card>
 
-        {/* Champion Recommendations */}
+        {/* Synergy Profile Section */}
         <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
           <CardHeader>
-            <h2 className="text-2xl font-bold text-white">Champion Recommendations</h2>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-white">Synergy Profile</h2>
+              <p className="text-[#cfcfcf]">Your playstyle traits and how they influence your gameplay</p>
+            </div>
           </CardHeader>
-          <CardBody>
-            <div className="space-y-8">
-              {(["Top", "Jungle", "Mid", "ADC", "Support"] as const).map((role) => {
-                const champs = getChampionsForRole(role, 5);
-                const affinity = roleAffinity[role];
-                return (
-                  <div key={role}>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-semibold text-white">{role} Lane</h3>
-                      <span className="text-sm text-[#cfcfcf]">
-                        {affinity}% match
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      {champs.map((champ) => (
-                        <ChampionCard key={champ.id} champion={champ} />
-                      ))}
-                    </div>
+          <CardBody className="p-6 space-y-6">
+            {/* Style Vector */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-white">Style Vector</h3>
+              {Object.entries(aiOutput.synergy_profile.style_vector).map(([key, value]) => (
+                <div key={key} className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-[#cfcfcf]">{formatSkillName(key)}</span>
+                    <span className="text-white font-semibold">{value}</span>
                   </div>
-                );
-              })}
+                  <Progress
+                    value={value}
+                    className="max-w-full"
+                    classNames={{
+                      indicator: "bg-[#ff7a00]",
+                      track: "bg-[#1a1a1a]",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Derived From */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-white">Derived From</h3>
+              <div className="flex flex-wrap gap-2">
+                {aiOutput.synergy_profile.derived_from.map((game) => (
+                  <Chip
+                    key={game}
+                    className="bg-[#1a1a1a] text-[#cfcfcf] border border-[#2b2b2b]"
+                  >
+                    {formatSkillName(game)}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Recommended Champions Section */}
+        <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+          <CardHeader>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-white">Recommended Champions</h2>
+              <p className="text-[#cfcfcf]">Champions that fit your playstyle and skill level</p>
+            </div>
+          </CardHeader>
+          <CardBody className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {aiOutput.champion_shortlist.map((champion, index) => (
+                <Card key={index} className="bg-[#0d0d0d] border border-[#2b2b2b]">
+                  <CardBody className="p-4 space-y-3">
+                    <h3 className="text-lg font-semibold text-white">{champion.name}</h3>
+                    <p className="text-sm text-[#cfcfcf]">{champion.why}</p>
+                    <div className="flex items-center justify-between pt-2">
+                      <Chip
+                        className={`border border-[#2b2b2b] ${getDifficultyColor(
+                          champion.difficulty
+                        )}`}
+                        size="sm"
+                      >
+                        {champion.difficulty}
+                      </Chip>
+                      <span className="text-xs text-[#cfcfcf]">Difficulty</span>
+                    </div>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Next Actions & Rationale Section */}
+        <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+          <CardHeader>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-white">Next Actions & Rationale</h2>
+              <p className="text-[#cfcfcf]">Steps to maximize your gameplay</p>
+            </div>
+          </CardHeader>
+          <CardBody className="p-6 space-y-6">
+            {/* Next Actions */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-white">Next Actions</h3>
+              <ul className="space-y-2">
+                {aiOutput.next_actions.map((action, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#ff7a00] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-sm font-bold text-[#0d0d0d]">{index + 1}</span>
+                    </div>
+                    <span className="text-[#cfcfcf]">{action}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Rationale */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-white">Rationale</h3>
+              <div className="space-y-2">
+                {aiOutput.rationale.map((point, index) => (
+                  <div key={index} className="bg-[#0d0d0d] p-3 rounded-lg border border-[#2b2b2b]">
+                    <p className="text-[#cfcfcf]">{point}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Confidence Score */}
+            <div className="space-y-2 pt-4 border-t border-[#2b2b2b]">
+              <div className="flex justify-between">
+                <span className="text-[#cfcfcf]">Recommendation Confidence</span>
+                <span className="text-white font-semibold">{aiOutput.confidence}%</span>
+              </div>
+              <Progress
+                value={aiOutput.confidence}
+                className="max-w-full"
+                classNames={{
+                  indicator: "bg-[#00d4ff]",
+                  track: "bg-[#1a1a1a]",
+                }}
+              />
             </div>
           </CardBody>
         </Card>
@@ -178,4 +336,3 @@ export default function RecommendationsPage() {
     </PageShell>
   );
 }
-
