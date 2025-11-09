@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import fetchdata, model, synergy
 from auth import get_current_user, get_optional_user
 from database import get_user_profile, get_user_by_email
@@ -9,6 +9,7 @@ from datetime import datetime
 from collections import defaultdict
 import json
 import numpy as np
+import requests
 
 def convert_affinity_to_python_types(affinity_dict: Dict[str, Any]) -> Dict[str, float]:
     """
@@ -30,6 +31,12 @@ class OnboardingDataRequest(BaseModel):
     fortnite: Optional[Dict[str, Any]] = None  # {gamemode, role, years, competitive}
     valorant: Optional[Dict[str, Any]] = None  # {agent, mode, role, years, competitive}
     league: Optional[Dict[str, Any]] = None  # {champion, mode, role, years, competitive}
+
+class PatchAnalysisRequest(BaseModel):
+    patch_title: str
+    patch_description: Optional[str] = None
+    patch_url: Optional[str] = None
+    compare_with_previous: bool = False
 
 app = FastAPI(
     title="Spawner AI Backend",
@@ -813,6 +820,232 @@ def save_onboarding_data(
         raise HTTPException(
             status_code=500,
             detail=f"Error saving onboarding data: {str(e)}"
+        )
+
+@app.get("/getRiotUpdates")
+def get_riot_updates(user: dict = Depends(get_optional_user)):
+    """
+    Fetch League of Legends patch updates from the Riot Games news API.
+    Returns filtered patches relevant to League of Legends only.
+    """
+    try:
+        response = requests.get("https://soraclee.github.io/riotgames-news-api/data/lol/gameUpdatesEn.json", timeout=10)
+        response.raise_for_status()
+        
+        all_updates = response.json()
+        
+        # Filter for League of Legends patches only (exclude TFT)
+        lol_patches = []
+        for update in all_updates:
+            # Filter out Teamfight Tactics patches
+            if "Teamfight Tactics" not in update.get("title", "") and "TFT" not in update.get("title", ""):
+                # Extract patch number if available (e.g., "Patch 25.22 Notes")
+                patch_title = update.get("title", "")
+                
+                lol_patches.append({
+                    "title": update.get("title", ""),
+                    "publishedAt": update.get("publishedAt", ""),
+                    "description": update.get("description", {}).get("body", "") if isinstance(update.get("description"), dict) else "",
+                    "media": {
+                        "url": update.get("media", {}).get("url", "") if isinstance(update.get("media"), dict) else "",
+                        "colors": update.get("media", {}).get("colors", {}) if isinstance(update.get("media"), dict) else {}
+                    },
+                    "action": {
+                        "type": update.get("action", {}).get("type", "") if isinstance(update.get("action"), dict) else "",
+                        "url": update.get("action", {}).get("payload", {}).get("url", "") if isinstance(update.get("action"), dict) and isinstance(update.get("action", {}).get("payload"), dict) else ""
+                    },
+                    "analytics": {
+                        "publishDate": update.get("analytics", {}).get("publishDate", "") if isinstance(update.get("analytics"), dict) else "",
+                        "contentId": update.get("analytics", {}).get("contentId", "") if isinstance(update.get("analytics"), dict) else ""
+                    },
+                    "category": update.get("category", {}).get("title", "") if isinstance(update.get("category"), dict) else ""
+                })
+        
+        # Sort by publish date (newest first)
+        lol_patches.sort(key=lambda x: x.get("publishedAt", ""), reverse=True)
+        
+        return {
+            "success": True,
+            "patches": lol_patches,
+            "total": len(lol_patches)
+        }
+    
+    except requests.RequestException as e:
+        print(f"Error fetching Riot updates: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch Riot updates: {str(e)}"
+        )
+    except Exception as e:
+        print(f"Error processing Riot updates: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing updates: {str(e)}"
+        )
+
+@app.post("/analyzePatch")
+def analyze_patch(
+    request: PatchAnalysisRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Analyze a patch for the current user's champions using AI.
+    Returns AI-generated analysis of how the patch affects the user's playstyle.
+    """
+    try:
+        user_email = user.get("email")
+        if not user_email:
+            raise HTTPException(
+                status_code=401,
+                detail="User email not found in token"
+            )
+        
+        # Get user's League affinity data
+        profile = get_user_profile(user_email)
+        if not profile:
+            raise HTTPException(
+                status_code=404,
+                detail="User profile not found"
+            )
+        
+        riot_name = profile.get("riot_name")
+        riot_id = profile.get("riot_id")
+        
+        if not riot_name or not riot_id:
+            raise HTTPException(
+                status_code=404,
+                detail="Riot ID not found. Please link your Riot account."
+            )
+        
+        # Fetch user's match history to get top champions
+        leaguematches = fetchdata.leaguematches(riot_name, riot_id)
+        if not leaguematches:
+            raise HTTPException(
+                status_code=404,
+                detail="No match history found"
+            )
+        
+        # Count champion usage
+        champion_counts = defaultdict(int)
+        for match in leaguematches:
+            if len(match) > 0:
+                champion_id = match[0]  # hero_stats contains champion info
+                champion_counts[champion_id] += 1
+        
+        # Get top 5 champions
+        top_champions = sorted(champion_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        # Use AWS Bedrock to analyze patch impact
+        import synergy as synergy_module
+        
+        # Create a prompt for patch analysis
+        patch_info = f"Patch: {request.patch_title}\n"
+        if request.patch_description:
+            patch_info += f"Description: {request.patch_description}\n"
+        
+        champion_list = ", ".join([f"Champion {champ[0]} ({champ[1]} games)" for champ in top_champions])
+        
+        prompt = f"""You are a professional League of Legends analyst. Analyze how the following patch affects a player's top champions.
+
+{patch_info}
+
+Player's Top Champions: {champion_list}
+
+Provide a detailed analysis in JSON format:
+{{
+    "summary": "<overall impact summary>",
+    "champions": [
+        {{
+            "champion_id": "<champion_id>",
+            "impact": "<positive/negative/neutral>",
+            "analysis": "<detailed analysis>",
+            "recommendations": "<what the player should do>",
+            "suggested_replacements": ["<champion1>", "<champion2>"]
+        }}
+    ],
+    "meta_shift": "<how the meta is shifting>",
+    "role_impact": {{
+        "top": "<impact>",
+        "jungle": "<impact>",
+        "mid": "<impact>",
+        "adc": "<impact>",
+        "support": "<impact>"
+    }}
+}}
+
+Return only valid JSON, no additional text."""
+        
+        # Use Bedrock for analysis
+        import boto3
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        bedrock = boto3.client(
+            service_name="bedrock-runtime",
+            region_name="us-east-1",
+            aws_access_key_id=os.getenv("awsid"),
+            aws_secret_access_key=os.getenv("awssecret")
+        )
+        
+        response = bedrock.invoke_model(
+            modelId="amazon.nova-micro-v1:0",
+            contentType="application/json",
+            accept="application/json",
+            body=json.dumps({
+                "messages": [{
+                    "role": "user",
+                    "content": [{"text": prompt}]
+                }],
+                "inferenceConfig": {
+                    "maxTokens": 2000,
+                    "temperature": 0.7
+                }
+            })
+        )
+        
+        result = json.loads(response["body"].read())
+        analysis_text = result["output"]["message"]["content"][0]["text"]
+        
+        # Try to parse JSON from response
+        try:
+            # Extract JSON from markdown code blocks if present
+            if "```json" in analysis_text:
+                json_start = analysis_text.find("```json") + 7
+                json_end = analysis_text.find("```", json_start)
+                analysis_text = analysis_text[json_start:json_end].strip()
+            elif "```" in analysis_text:
+                json_start = analysis_text.find("```") + 3
+                json_end = analysis_text.find("```", json_start)
+                analysis_text = analysis_text[json_start:json_end].strip()
+            
+            analysis_data = json.loads(analysis_text)
+        except json.JSONDecodeError:
+            # Fallback: return raw text if JSON parsing fails
+            analysis_data = {
+                "summary": analysis_text,
+                "champions": [],
+                "meta_shift": "Unable to parse detailed analysis",
+                "role_impact": {}
+            }
+        
+        return {
+            "success": True,
+            "patch_title": request.patch_title,
+            "top_champions": [{"champion_id": champ[0], "games": champ[1]} for champ in top_champions],
+            "analysis": analysis_data,
+            "user_email": user_email
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error analyzing patch: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error analyzing patch: {str(e)}"
         )
 
 # Note: Run the server with: uvicorn main:app --reload --port 8000

@@ -15,7 +15,8 @@ import NextLink from "next/link";
 const navItems = [
   { label: "Dashboard", href: "/dashboard", section: "Overview" },
   { label: "Squad", href: "/squad", section: "Team" },
-  { label: "Simulate", href: "/simulate", section: "Team" },
+  { label: "Simulate", href: "/simulate", section: "AGENTS" },
+  { label: "META", href: "/meta", section: "AGENTS" },
   { label: "Report", href: "/report/example", section: "Team" },
   { label: "Champions", href: "/champions", section: "Team" },
 ];
