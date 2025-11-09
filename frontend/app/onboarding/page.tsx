@@ -8,7 +8,7 @@ import { Typewriter } from "@/components/ui/Typewriter";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { initializeUserProfile } from "@/lib/api";
+import { initializeUserProfile, saveOnboardingData } from "@/lib/api";
 import Image from "next/image";
 
 const navItems = [
@@ -197,6 +197,68 @@ export default function OnboardingPage() {
   };
 
   const handleFinish = async () => {
+    // Save all onboarding data to backend
+    if (user) {
+      try {
+        // Prepare games data
+        const gamesData: any = {};
+        if (selectedGames.has("apex") && apexUsername) {
+          gamesData.apex = apexUsername;
+        }
+        if (selectedGames.has("csgo") && csgoUsername) {
+          gamesData.csgo = csgoUsername;
+        }
+        if (selectedGames.has("dota2") && dota2Username) {
+          gamesData.dota2 = dota2Username;
+        }
+
+        // Prepare Fortnite data
+        const fortniteData: any = {};
+        if (hasPlayedFortnite) {
+          if (fortniteGamemode) fortniteData.gamemode = fortniteGamemode;
+          if (fortniteRole) fortniteData.role = fortniteRole;
+          if (fortniteYears) fortniteData.years = fortniteYears;
+          fortniteData.competitive = fortniteCompetitive;
+        }
+
+        // Prepare Valorant data
+        const valorantData: any = {};
+        if (hasPlayedValorant) {
+          if (valorantAgent) valorantData.agent = valorantAgent;
+          if (valorantMode) valorantData.mode = valorantMode;
+          if (valorantRole) valorantData.role = valorantRole;
+          if (valorantYears) valorantData.years = valorantYears;
+          valorantData.competitive = valorantCompetitive;
+        }
+
+        // Prepare League data
+        const leagueData: any = {};
+        if (hasPlayedLeague) {
+          if (leagueChampion) leagueData.champion = leagueChampion;
+          if (leagueMode) leagueData.mode = leagueMode;
+          if (leagueRole) leagueData.role = leagueRole;
+          if (leagueYears) leagueData.years = leagueYears;
+          leagueData.competitive = leagueCompetitive;
+        }
+
+        // Save onboarding data
+        const { error } = await saveOnboardingData({
+          games: Object.keys(gamesData).length > 0 ? gamesData : undefined,
+          fortnite: Object.keys(fortniteData).length > 0 ? fortniteData : undefined,
+          valorant: Object.keys(valorantData).length > 0 ? valorantData : undefined,
+          league: Object.keys(leagueData).length > 0 ? leagueData : undefined,
+        });
+
+        if (error) {
+          console.error("Error saving onboarding data:", error);
+          // Still proceed even if save fails
+        }
+      } catch (err) {
+        console.error("Exception saving onboarding data:", err);
+        // Still proceed even if save fails
+      }
+    }
+
     // Mark onboarding as completed
     if (typeof window !== "undefined") {
       localStorage.setItem("spawner_onboarding_completed", "true");

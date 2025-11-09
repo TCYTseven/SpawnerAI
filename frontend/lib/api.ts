@@ -197,3 +197,40 @@ export async function initializeUserProfile(data: {
     body: JSON.stringify(data),
   });
 }
+
+export async function saveOnboardingData(data: {
+  games?: {
+    apex?: string;
+    csgo?: string;
+    dota2?: string;
+  };
+  fortnite?: {
+    gamemode?: string;
+    role?: string;
+    years?: string;
+    competitive?: boolean;
+  };
+  valorant?: {
+    agent?: string;
+    mode?: string;
+    role?: string;
+    years?: string;
+    competitive?: boolean;
+  };
+  league?: {
+    champion?: string;
+    mode?: string;
+    role?: string;
+    years?: string;
+    competitive?: boolean;
+  };
+}) {
+  return apiRequest<{
+    success: boolean;
+    message: string;
+    email: string;
+  }>("/saveOnboardingData", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
