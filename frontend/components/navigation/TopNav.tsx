@@ -1,11 +1,8 @@
 "use client";
 
-import { Link } from "@heroui/link";
 import { Button } from "@heroui/button";
 import NextLink from "next/link";
-import { usePathname } from "next/navigation";
 import Image from "next/image";
-import clsx from "clsx";
 
 interface NavLink {
   label: string;
@@ -18,7 +15,6 @@ interface TopNavProps {
 }
 
 export function TopNav({ links, onCTAClick }: TopNavProps) {
-  const pathname = usePathname();
 
   return (
     <nav
@@ -27,46 +23,35 @@ export function TopNav({ links, onCTAClick }: TopNavProps) {
       aria-label="Main navigation"
     >
       <div className="container mx-auto max-w-7xl px-6">
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center">
           {/* Brand */}
-          <NextLink
-            href="/"
-            className="flex items-center focus:outline-none focus:ring-2 focus:ring-[#ff7a00] focus:ring-offset-2 focus:ring-offset-[#0d0d0d] rounded"
-            aria-label="Spawner – AI Home"
-          >
-            <Image
-              src="/SpawnerAI_Logo.png"
-              alt="Spawner AI"
-              width={120}
-              height={40}
-              className="h-8 w-auto"
-              priority
-            />
-          </NextLink>
+          <div className="flex-shrink-0">
+            <NextLink
+              href="/"
+              className="flex items-center focus:outline-none focus:ring-2 focus:ring-[#ff7a00] focus:ring-offset-2 focus:ring-offset-[#0d0d0d] rounded"
+              aria-label="Spawner – AI Home"
+            >
+              <span className="flex items-center">
+                <Image
+                  src="/SpawnerAI_Logo.png"
+                  alt="Spawner AI"
+                  width={120}
+                  height={40}
+                  className="h-8 w-auto"
+                  priority
+                />
+                <span className="ml-3 text-white text-lg font-semibold">Spawner AI</span>
+              </span>
+            </NextLink>
+          </div>
 
-          {/* Links */}
-          <div className="hidden md:flex items-center gap-8">
-            {links.map((link) => {
-              const isActive = pathname === link.href || (link.href.startsWith("#") && false);
-              return (
-                <Link
-                  key={link.href}
-                  as={NextLink}
-                  href={link.href}
-                  className={clsx(
-                    "text-[#cfcfcf] hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#ff7a00] focus:ring-offset-2 focus:ring-offset-[#0d0d0d] rounded px-2 py-1",
-                    isActive && "text-[#ff7a00] border-b-2 border-[#ff7a00]"
-                  )}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+          {/* Centered Label */}
+          <div className="flex-1 flex justify-center items-center">
+            <h1 className="text-white text-xl font-bold"></h1>
           </div>
 
           {/* CTA Buttons */}
-          <div className="flex items-center gap-4">
+          <div className="flex-shrink-0 flex items-center gap-4">
             <Button
               as={NextLink}
               href="/login"
