@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, Dict, Any
 import fetchdata, model, synergy
 from auth import get_current_user, get_optional_user
 from database import get_user_profile, get_user_by_email
@@ -16,6 +17,12 @@ class UserProfileRequest(BaseModel):
     riot_name: str | None = None
     riot_id: str | None = None
     steam_id: str | None = None
+
+class OnboardingDataRequest(BaseModel):
+    games: Optional[Dict[str, str]] = None  # {apex: username, csgo: username, dota2: username}
+    fortnite: Optional[Dict[str, Any]] = None  # {gamemode, role, years, competitive}
+    valorant: Optional[Dict[str, Any]] = None  # {agent, mode, role, years, competitive}
+    league: Optional[Dict[str, Any]] = None  # {champion, mode, role, years, competitive}
 
 app = FastAPI(
     title="Spawner AI Backend",
@@ -667,6 +674,72 @@ def initialize_user_profile(
         raise HTTPException(
             status_code=500,
             detail=f"Error initializing profile: {str(e)}"
+        )
+
+@app.post("/saveOnboardingData")
+def save_onboarding_data(
+    onboarding_data: OnboardingDataRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Save onboarding data as JSON in the onboarding_json column.
+    This endpoint stores all onboarding information including game usernames,
+    Fortnite/Valorant/League experience, and preferences.
+    Requires authentication.
+    """
+    try:
+        user_email = user.get("email")
+        if not user_email:
+            raise HTTPException(
+                status_code=401,
+                detail="User email not found in token"
+            )
+        
+        from database import supabase
+        
+        # Prepare onboarding JSON data
+        onboarding_json = {
+            "games": onboarding_data.games or {},
+            "fortnite": onboarding_data.fortnite or {},
+            "valorant": onboarding_data.valorant or {},
+            "league": onboarding_data.league or {},
+            "completed_at": datetime.utcnow().isoformat()
+        }
+        
+        # Check if profile exists
+        existing_profile = get_user_profile(user_email)
+        
+        if existing_profile:
+            # Update existing profile with onboarding_json
+            response = supabase.table("user_profiles").update({
+                "onboarding_json": onboarding_json
+            }).eq("email", user_email).execute()
+        else:
+            # Create new profile with onboarding_json
+            response = supabase.table("user_profiles").insert({
+                "email": user_email,
+                "onboarding_json": onboarding_json
+            }).execute()
+        
+        if not response.data:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to save onboarding data"
+            )
+        
+        return {
+            "success": True,
+            "message": "Onboarding data saved successfully",
+            "email": user_email
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error saving onboarding data: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error saving onboarding data: {str(e)}"
         )
 
 # Note: Run the server with: uvicorn main:app --reload --port 8000
