@@ -61,20 +61,6 @@ export function StepWizard({
         )}
       </div>
 
-      {/* Step Indicators */}
-      <div className="flex items-center gap-2">
-        {steps.map((step, index) => (
-          <div
-            key={step.key}
-            className={clsx(
-              "flex-1 h-1 rounded transition-all",
-              index <= current ? "bg-[#ff7a00]" : "bg-[#1a1a1a]"
-            )}
-            aria-label={`Step ${index + 1}: ${step.title}${index === current ? " (current)" : index < current ? " (completed)" : ""}`}
-          />
-        ))}
-      </div>
-
       {/* Content */}
       <div className="min-h-[400px]">{children}</div>
 
