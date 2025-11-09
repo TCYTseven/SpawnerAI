@@ -8,6 +8,13 @@ from database import get_user_profile, get_user_by_email
 from datetime import datetime
 from collections import defaultdict
 import json
+import numpy as np
+
+def convert_affinity_to_python_types(affinity_dict: Dict[str, Any]) -> Dict[str, float]:
+    """
+    Convert numpy types in affinity dictionary to native Python types for JSON serialization.
+    """
+    return {key: float(value) for key, value in affinity_dict.items()}
 
 
 class SynergyRequest(BaseModel):
@@ -134,8 +141,9 @@ def get_affinity(
                 steamid_int = int(steam_id)
                 dotamatches = fetchdata.dota2matches(steamid_int)
                 if dotamatches:
+                    affinity_raw = model.predict(dotamatches)
                     result["dota2"] = {
-                        "affinity": model.predict(dotamatches),
+                        "affinity": convert_affinity_to_python_types(affinity_raw),
                         "match_count": len(dotamatches)
                     }
             except ValueError:
@@ -149,8 +157,9 @@ def get_affinity(
             try:
                 leaguematches = fetchdata.leaguematches(riot_name, riot_id)
                 if leaguematches:
+                    affinity_raw = model.predict(leaguematches)
                     result["league"] = {
-                        "affinity": model.predict(leaguematches),
+                        "affinity": convert_affinity_to_python_types(affinity_raw),
                         "match_count": len(leaguematches)
                     }
             except Exception as e:
@@ -211,41 +220,57 @@ def get_match_history(
                 steamid_int = int(steam_id)
                 dotamatches = fetchdata.dota2matches(steamid_int)
                 
-                if dotamatches:
+                if dotamatches and len(dotamatches) > 0:
                     # Group matches by month
                     # dotamatches format: [hero_stats, kills, deaths, assists, win, start_time]
                     matches_by_month = defaultdict(list)
                     
                     for match in dotamatches:
-                        if len(match) >= 6:  # Ensure we have start_time
-                            timestamp = match[5]  # Unix timestamp
-                            month_key = datetime.fromtimestamp(timestamp).strftime("%Y-%m")
-                            matches_by_month[month_key].append(match)
+                        if len(match) >= 6 and match[5] and match[5] > 0:  # Ensure we have valid start_time
+                            try:
+                                timestamp = match[5]  # Unix timestamp
+                                month_key = datetime.fromtimestamp(timestamp).strftime("%Y-%m")
+                                matches_by_month[month_key].append(match)
+                            except (ValueError, OSError) as e:
+                                print(f"Error processing match timestamp: {e}")
+                                continue
                     
-                    # Calculate affinity for each month
-                    monthly_progression = []
-                    for month in sorted(matches_by_month.keys()):
-                        month_matches = matches_by_month[month]
-                        month_affinity = model.predict(month_matches)
+                    if matches_by_month:
+                        # Calculate affinity for each month
+                        monthly_progression = []
+                        for month in sorted(matches_by_month.keys()):
+                            month_matches = matches_by_month[month]
+                            if month_matches:
+                                month_affinity_raw = model.predict(month_matches)
+                                month_affinity = convert_affinity_to_python_types(month_affinity_raw)
+                                
+                                month_date = datetime.strptime(month, "%Y-%m")
+                                month_display = month_date.strftime("%b %Y")
+                                
+                                monthly_progression.append({
+                                    "month": month_display,
+                                    "month_key": month,
+                                    "affinity": month_affinity,
+                                    "match_count": len(month_matches)
+                                })
                         
-                        month_date = datetime.strptime(month, "%Y-%m")
-                        month_display = month_date.strftime("%b %Y")
-                        
-                        monthly_progression.append({
-                            "month": month_display,
-                            "month_key": month,
-                            "affinity": month_affinity,
-                            "match_count": len(month_matches)
-                        })
-                    
-                    result["dota2"] = {
-                        "progression": monthly_progression,
-                        "total_matches": len(dotamatches)
-                    }
-            except ValueError:
-                pass  # Invalid Steam ID format
+                        if monthly_progression:
+                            result["dota2"] = {
+                                "progression": monthly_progression,
+                                "total_matches": len(dotamatches)
+                            }
+                        else:
+                            print("No valid matches found after grouping by month")
+                    else:
+                        print("No matches could be grouped by month (missing timestamps)")
+                else:
+                    print(f"Dota 2 matches returned empty or None (steam_id: {steam_id})")
+            except ValueError as e:
+                print(f"Invalid Steam ID format: {steam_id} - {e}")
             except Exception as e:
                 print(f"Error processing Dota 2 matches: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Process League of Legends matches
         if riot_name and riot_id:
@@ -267,7 +292,8 @@ def get_match_history(
                     monthly_progression = []
                     for month in sorted(matches_by_month.keys()):
                         month_matches = matches_by_month[month]
-                        month_affinity = model.predict(month_matches)
+                        month_affinity_raw = model.predict(month_matches)
+                        month_affinity = convert_affinity_to_python_types(month_affinity_raw)
                         
                         month_date = datetime.strptime(month, "%Y-%m")
                         month_display = month_date.strftime("%b %Y")
@@ -288,9 +314,15 @@ def get_match_history(
         
         # Check if we have at least one game's data
         if not result["dota2"] and not result["league"]:
+            # Provide more helpful error message
+            error_detail = "No match data found."
+            if steam_id and not result["dota2"]:
+                error_detail += f" Steam ID {steam_id} returned no matches."
+            if (riot_name and riot_id) and not result["league"]:
+                error_detail += f" Riot ID {riot_name}#{riot_id} returned no matches."
             raise HTTPException(
                 status_code=404,
-                detail="No match data found."
+                detail=error_detail
             )
         
         return result
@@ -355,7 +387,8 @@ def get_synergy(
                     steamid_int = int(steam_id)
                     dotamatches = fetchdata.dota2matches(steamid_int)
                     if dotamatches:
-                        current_affinity_result["dota2"] = model.predict(dotamatches)
+                        affinity_raw = model.predict(dotamatches)
+                        current_affinity_result["dota2"] = convert_affinity_to_python_types(affinity_raw)
                 except (ValueError, Exception):
                     pass
             
@@ -363,7 +396,8 @@ def get_synergy(
                 try:
                     leaguematches = fetchdata.leaguematches(riot_name, riot_id)
                     if leaguematches:
-                        current_affinity_result["league"] = model.predict(leaguematches)
+                        affinity_raw = model.predict(leaguematches)
+                        current_affinity_result["league"] = convert_affinity_to_python_types(affinity_raw)
                 except Exception:
                     pass
             
@@ -384,7 +418,8 @@ def get_synergy(
                     steamid_int = int(steam_id_other)
                     dotamatches = fetchdata.dota2matches(steamid_int)
                     if dotamatches:
-                        other_affinity_result["dota2"] = model.predict(dotamatches)
+                        affinity_raw = model.predict(dotamatches)
+                        other_affinity_result["dota2"] = convert_affinity_to_python_types(affinity_raw)
                 except (ValueError, Exception):
                     pass
             
@@ -392,7 +427,8 @@ def get_synergy(
                 try:
                     leaguematches = fetchdata.leaguematches(riot_name_other, riot_id_other)
                     if leaguematches:
-                        other_affinity_result["league"] = model.predict(leaguematches)
+                        affinity_raw = model.predict(leaguematches)
+                        other_affinity_result["league"] = convert_affinity_to_python_types(affinity_raw)
                 except Exception:
                     pass
             
@@ -580,7 +616,8 @@ def get_suggested_role(
         try:
             leaguematches = fetchdata.leaguematches(riot_name, riot_id)
             if leaguematches:
-                affinity = model.predict(leaguematches)
+                affinity_raw = model.predict(leaguematches)
+                affinity = convert_affinity_to_python_types(affinity_raw)
                 role_mapping = {
                     "tank": "Top",
                     "scout": "Jungle",
@@ -682,9 +719,10 @@ def save_onboarding_data(
     user: dict = Depends(get_current_user)
 ):
     """
-    Save onboarding data as JSON in the onboarding_json column.
+    Save onboarding data as JSON in the onboarding_json column AND update individual columns.
     This endpoint stores all onboarding information including game usernames,
     Fortnite/Valorant/League experience, and preferences.
+    Also updates steam_id, riot_name, riot_id columns for redundancy.
     Requires authentication.
     """
     try:
@@ -706,20 +744,55 @@ def save_onboarding_data(
             "completed_at": datetime.utcnow().isoformat()
         }
         
+        # Prepare individual column updates (for redundancy)
+        # We save to both JSON and individual columns for easy querying
+        profile_updates = {
+            "onboarding_json": onboarding_json
+        }
+        
+        # Extract and save to individual columns from games data
+        if onboarding_data.games:
+            # Steam ID from Dota 2 (Steam ID) or CS:GO (Steam username)
+            # Prioritize Dota 2 Steam ID if both exist since it's the actual Steam ID
+            if onboarding_data.games.get("dota2"):
+                steam_id_value = onboarding_data.games["dota2"].strip()
+                if steam_id_value:
+                    profile_updates["steam_id"] = steam_id_value
+            elif onboarding_data.games.get("csgo"):
+                # CS:GO uses Steam username, store it in steam_id column
+                csgo_username = onboarding_data.games["csgo"].strip()
+                if csgo_username:
+                    profile_updates["steam_id"] = csgo_username
+        
+        # Note: riot_name and riot_id columns are preserved if they exist
+        # They can be set separately or extracted from other sources
+        # The JSON contains all detailed onboarding data, while individual columns
+        # provide quick access to commonly queried fields (redundancy is fine!)
+        
         # Check if profile exists
         existing_profile = get_user_profile(user_email)
         
         if existing_profile:
-            # Update existing profile with onboarding_json
-            response = supabase.table("user_profiles").update({
-                "onboarding_json": onboarding_json
-            }).eq("email", user_email).execute()
+            # Preserve existing riot_name and riot_id if they exist and we're not updating them
+            # Only update them if we have new data (currently not collected in onboarding)
+            if existing_profile.get("riot_name") and "riot_name" not in profile_updates:
+                profile_updates["riot_name"] = existing_profile["riot_name"]
+            if existing_profile.get("riot_id") and "riot_id" not in profile_updates:
+                profile_updates["riot_id"] = existing_profile["riot_id"]
+            if existing_profile.get("steam_id") and "steam_id" not in profile_updates:
+                # Only preserve existing steam_id if we don't have new data
+                pass  # We want to update steam_id if we have new data, so don't preserve
+            
+            # Update existing profile with onboarding_json AND individual columns
+            response = supabase.table("user_profiles").update(
+                profile_updates
+            ).eq("email", user_email).execute()
         else:
-            # Create new profile with onboarding_json
-            response = supabase.table("user_profiles").insert({
-                "email": user_email,
-                "onboarding_json": onboarding_json
-            }).execute()
+            # Create new profile with onboarding_json AND individual columns
+            profile_updates["email"] = user_email
+            response = supabase.table("user_profiles").insert(
+                profile_updates
+            ).execute()
         
         if not response.data:
             raise HTTPException(

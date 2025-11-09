@@ -117,6 +117,8 @@ export default function DashboardPage() {
 
         if (historyError) {
           console.error("Error fetching match history:", historyError);
+          // Don't set this as a fatal error - match history is optional
+          // The user can still see affinity data even without match history
         } else if (historyData) {
           // Transform Dota 2 progression data
           if (historyData.dota2?.progression) {
