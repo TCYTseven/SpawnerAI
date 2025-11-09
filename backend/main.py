@@ -41,7 +41,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "FastAPI is running!"}
+    return {"message": "SpawnerAI is running!"}
 
 @app.get("/health")
 def health_check():
