@@ -1,13 +1,31 @@
-# Project Setup Instructions
+# SpawnerAI
 
-This project has both a **frontend** (using Next.js) and a **backend** (using FastAPI). Please follow these steps to set up and run both parts locally.
+SpawnerAI uses AI to analyze your playstyle across multiple games and translate those skills into personalized League of Legends recommendations. Instead of spending weeks trying different champions, the app tells you exactly which ones match how you actually play.
+
+The system pulls your stats from Valorant, Apex Legends, CS:GO, Fortnite, and Dota 2, then builds a comprehensive profile of your gameplay patterns. It maps your aggression levels, positioning habits, team coordination, and clutch potential to League champions and roles that actually fit your style. A fragger from Valorant gets matched with aggressive skirmishers. A support main from Apex gets paired with League supports that match their playstyle. The AI handles the translation so you don't have to.
+
+## What it does
+
+Connect your accounts from any games you play, and SpawnerAI builds a detailed profile of your actual gameplay behavior. It analyzes aggression patterns, positioning tendencies, teamplay vs solo carry preferences, and utility usage across all your games. That profile then gets mapped to League champions, roles, and even build paths that match your natural playstyle.
+
+The dashboard gives you a complete skill breakdown with visualizations, personalized champion recommendations ranked by fit, and squad synergy analysis if you're playing with a team. The patch analysis feature is particularly useful - instead of reading generic patch notes, you get analysis of how each update specifically affects your champion pool and what you should adapt.
+
+Built on AWS Bedrock for the AI analysis, Riot's API for match data, and Supabase for profiles and authentication. Frontend is Next.js with TypeScript, backend is FastAPI.
+
+## What you need
+
+You'll need Node.js 18+, Python 3.8+, and npm/yarn installed. For API keys, grab a Riot API key from their developer portal, set up a Supabase project for the database and auth, get a Tracker.gg API key if you want CS:GO/Apex stats, and AWS credentials for Bedrock if you want the AI features working.
+
+## Setup
+
+The project splits into a Next.js frontend and FastAPI backend. You'll need to run both - here's how to get them going.
 
 ---
 
 ## 1. Clone the Repository
 
 ```sh
-git clone https://github.com/TCYTseven/SpawnerAI>
+git clone https://github.com/TCYTseven/SpawnerAI
 ```
 
 ---
@@ -34,7 +52,12 @@ riotapikey=<your-riot-api-key>
 SUPABASE_URL=<your-supabase-url>
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
 SUPABASE_JWT_SECRET=<your-supabase-jwt-secret>
+trackerapikey=<your-tracker-gg-api-key>
+awsid=<your-aws-access-key-id>
+awssecret=<your-aws-secret-access-key>
 ```
+
+For the Riot API key, head to the [Riot Developer Portal](https://developer.riotgames.com/). Supabase keys are in your project settings under API. Tracker.gg has a developer portal at [tracker.gg/developers](https://tracker.gg/developers) for CS:GO and Apex stats. AWS credentials come from the IAM console - you'll need these for Bedrock to run the AI analysis.
 
 ---
 
@@ -87,10 +110,6 @@ SUPABASE_JWT_SECRET=<your-supabase-jwt-secret>
 
 ---
 
-## Additional Notes
+## Notes
 
-- Make sure both the frontend and backend `.env` files are correctly set up with your keys and secrets.
-- If you encounter errors related to missing packages or dependencies, ensure your virtual environment is activated in the backend and all `npm install` commands completed in the frontend.
-- Check the environment files are **not checked into version control** as they contain sensitive information.
-
-Enjoy developing!
+Make sure your `.env` files are set up correctly on both frontend and backend. If you're getting dependency errors, check that your Python venv is activated and npm install finished successfully. Don't commit your `.env` files - they've got API keys in them.
