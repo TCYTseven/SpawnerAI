@@ -227,11 +227,14 @@ ${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
             <p className="text-[#cfcfcf]">Track your Dota 2 performance and skill progression</p>
           </div>
           <Button
-            className="bg-[#ff7a00] text-white hover:bg-[#ff8a20]"
+            className="relative bg-gradient-to-r from-[#ff7a00] via-[#ff8a20] to-[#ff7a00] text-white font-semibold px-6 py-3 shadow-lg shadow-[#ff7a00]/30 hover:shadow-[#ff7a00]/50 transition-all duration-300 hover:scale-105 border border-[#ff7a00]/50"
             onPress={handleAIAnalysis}
-            startContent={<span>🤖</span>}
+            startContent={
+              <span className="text-xl drop-shadow-lg">🤖</span>
+            }
           >
-            AI Analyze Performance
+            <span className="relative z-10">AI Analyze Performance</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#ff7a00] via-[#ff9a40] to-[#ff7a00] opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
           </Button>
         </div>
 
@@ -625,35 +628,146 @@ ${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        size="2xl"
+        size="lg"
         classNames={{
-          base: "bg-[#1a1a1a] border-2 border-[#2b2b2b]",
-          header: "border-b border-[#2b2b2b]",
-          body: "py-6",
+          base: "bg-[#1a1a1a] border border-[#ff7a00]/40",
+          header: "border-b border-[#2b2b2b] pb-3",
+          body: "py-4",
+          footer: "border-t border-[#2b2b2b] pt-3",
         }}
       >
         <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🤖</span>
-              <h2 className="text-2xl font-bold text-white">AI Performance Analysis</h2>
-            </div>
+          <ModalHeader className="flex items-center gap-2 pb-2">
+            <span className="text-xl">🤖</span>
+            <h2 className="text-xl font-bold text-[#ff7a00]">AI Performance Analysis</h2>
           </ModalHeader>
           <ModalBody>
             {isAnalyzing ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Spinner size="lg" color="warning" />
-                <p className="text-[#cfcfcf] mt-4">Analyzing your performance data...</p>
+              <div className="flex flex-col items-center justify-center py-8">
+                <Spinner size="md" color="warning" />
+                <p className="text-[#cfcfcf] mt-4 text-sm">Analyzing...</p>
               </div>
             ) : (
-              <div className="text-[#cfcfcf] whitespace-pre-line leading-relaxed">
-                {aiAnalysis}
+              <div className="space-y-4">
+                {aiAnalysis && (() => {
+                  // Parse the analysis text into structured sections
+                  const structuredData: { [key: string]: string[] } = {};
+                  const lines = aiAnalysis.split('\n');
+                  let currentSection = '';
+                  
+                  for (const line of lines) {
+                    const trimmed = line.trim();
+                    // Check if it's a section header (e.g., **Strengths:**)
+                    const sectionMatch = trimmed.match(/\*\*(.+?):\*\*/);
+                    if (sectionMatch) {
+                      currentSection = sectionMatch[1].trim();
+                      structuredData[currentSection] = [];
+                    } else if (currentSection && trimmed) {
+                      // Check if it's a bullet point or numbered item
+                      if (trimmed.startsWith('-') || trimmed.match(/^\d+\./)) {
+                        const cleaned = trimmed.replace(/^[-•\d+\.]\s*/, '').trim();
+                        if (cleaned) {
+                          structuredData[currentSection].push(cleaned);
+                        }
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <div className="space-y-3">
+                      {structuredData['Strengths'] && structuredData['Strengths'].length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
+                            Strengths
+                          </h3>
+                          <ul className="space-y-1.5 ml-3">
+                            {structuredData['Strengths'].map((item, idx) => (
+                              <li key={idx} className="text-sm text-[#cfcfcf] flex items-start gap-2">
+                                <span className="text-[#ff7a00] mt-0.5">•</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {structuredData['Areas for Improvement'] && structuredData['Areas for Improvement'].length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
+                            Areas for Improvement
+                          </h3>
+                          <ul className="space-y-1.5 ml-3">
+                            {structuredData['Areas for Improvement'].map((item, idx) => (
+                              <li key={idx} className="text-sm text-[#cfcfcf] flex items-start gap-2">
+                                <span className="text-[#ff7a00] mt-0.5">•</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {structuredData['Recommendations'] && structuredData['Recommendations'].length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
+                            Recommendations
+                          </h3>
+                          <ol className="space-y-1.5 ml-3">
+                            {structuredData['Recommendations'].map((item, idx) => (
+                              <li key={idx} className="text-sm text-[#cfcfcf] flex items-start gap-2">
+                                <span className="text-[#ff7a00] font-semibold min-w-[20px]">{idx + 1}.</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                      
+                      {structuredData['Skill Breakdown'] && structuredData['Skill Breakdown'].length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
+                            Skill Breakdown
+                          </h3>
+                          <div className="space-y-2 ml-3">
+                            {structuredData['Skill Breakdown'].map((item, idx) => {
+                              const match = item.match(/(.+):\s*(\d+)%/);
+                              if (!match) return null;
+                              const [, skill, value] = match;
+                              const numValue = parseInt(value);
+                              return (
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-white">{skill}</span>
+                                    <span className="text-sm text-[#ff7a00] font-semibold">{value}%</span>
+                                  </div>
+                                  <Progress
+                                    value={numValue}
+                                    size="sm"
+                                    className="w-full"
+                                    classNames={{
+                                      indicator: "bg-[#ff7a00]",
+                                      track: "bg-[#0d0d0d]",
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </ModalBody>
           <ModalFooter>
             <Button
-              className="bg-[#ff7a00] text-white hover:bg-[#ff8a20]"
+              className="bg-[#ff7a00] text-white text-sm px-4 hover:bg-[#ff8a20]"
               onPress={onClose}
             >
               Close
