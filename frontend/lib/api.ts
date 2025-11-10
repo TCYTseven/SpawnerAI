@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 export interface ApiError {
   message: string;
