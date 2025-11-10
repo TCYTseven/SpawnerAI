@@ -4,7 +4,6 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
-import { Avatar } from "@heroui/avatar";
 import { mockSquad, mockPlayers, getChampionsForRole, mockChampions } from "@/types/mock";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -87,11 +86,11 @@ export default function ReportPage() {
                 YOUR SQUAD REPORT
               </div>
               <h1 className="text-4xl md:text-5xl font-black text-white mb-2">
-                {mockSquad.name}
+                Team RiftRewind!
               </h1>
               <div className="flex items-center justify-center gap-4 mt-4">
                 <div className="text-center">
-                  <div className="text-3xl font-black text-[#ff7a00]">{mockSquad.synergyScore}%</div>
+                  <div className="text-3xl font-black text-[#ff7a00]">78%</div>
                   <div className="text-xs text-[#cfcfcf] uppercase tracking-wide">Synergy</div>
                 </div>
               </div>
@@ -103,23 +102,36 @@ export default function ReportPage() {
                 top players
               </div>
               <div className="flex items-center justify-center gap-4">
-                {mockPlayers.slice(0, 3).map((player, index) => (
-                  <div key={player.id} className="text-center">
-                    <div className="relative mb-2">
-                      <Avatar
-                        name={player.username}
-                        className="w-16 h-16 bg-gradient-to-br from-[#ff7a00] to-orange-600 text-white font-black text-lg border-4 border-white shadow-lg"
-                      />
-                      <div className="absolute -top-2 -left-2 w-6 h-6 bg-[#ff7a00] rounded-full flex items-center justify-center text-white text-xs font-black border-2 border-white">
-                        {index + 1}
-                      </div>
-                    </div>
-                    <div className="text-sm font-semibold text-white">{player.username}</div>
-                    <div className="text-xs text-[#cfcfcf]">
-                      {Object.entries(player.roleAffinity).reduce((a, b) => (a[1] > b[1] ? a : b))[0]}
+                {/* Player 1 - Tejas */}
+                <div className="text-center">
+                  <div className="relative mb-2">
+                    <img
+                      src="/orianna.png"
+                      alt="Tejas"
+                      className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg"
+                    />
+                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-[#ff7a00] rounded-full flex items-center justify-center text-white text-xs font-black border-2 border-white">
+                      1
                     </div>
                   </div>
-                ))}
+                  <div className="text-sm font-semibold text-white">Tejas</div>
+                  <div className="text-xs text-[#cfcfcf]">Mid</div>
+                </div>
+                {/* Player 2 - Henry */}
+                <div className="text-center">
+                  <div className="relative mb-2">
+                    <img
+                      src="/zed.png"
+                      alt="Henry"
+                      className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg"
+                    />
+                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-[#ff7a00] rounded-full flex items-center justify-center text-white text-xs font-black border-2 border-white">
+                      2
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-white">Henry</div>
+                  <div className="text-xs text-[#cfcfcf]">Support</div>
+                </div>
               </div>
             </div>
 
@@ -129,18 +141,45 @@ export default function ReportPage() {
                 most played
               </div>
               <div className="grid grid-cols-3 gap-4">
-                {topChampions[0]?.champions.slice(0, 3).map((champ, index) => (
-                  <div key={champ.id} className="text-center">
-                    <div className="aspect-square bg-[#0d0d0d] rounded-lg border-2 border-[#ff7a00]/30 flex items-center justify-center mb-2">
-                      <div className="text-3xl">🎮</div>
-                    </div>
-                    <div className="text-xs text-white font-semibold">{champ.name}</div>
-                    <div className="text-xs text-[#cfcfcf]">{champ.role}</div>
-                    <div className="text-xs text-[#ff7a00] font-semibold mt-1">
-                      {Math.floor(Math.random() * 50) + 20} games
-                    </div>
+                {/* Yasuo */}
+                <div className="text-center">
+                  <div className="aspect-square bg-[#0d0d0d] rounded-lg border-2 border-[#ff7a00]/30 overflow-hidden mb-2">
+                    <img
+                      src="/yasuo.png"
+                      alt="Yasuo"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                ))}
+                  <div className="text-xs text-white font-semibold">Yasuo</div>
+                  <div className="text-xs text-[#cfcfcf]">Mid</div>
+                  <div className="text-xs text-[#ff7a00] font-semibold mt-1">53 games</div>
+                </div>
+                {/* Orianna */}
+                <div className="text-center">
+                  <div className="aspect-square bg-[#0d0d0d] rounded-lg border-2 border-[#ff7a00]/30 overflow-hidden mb-2">
+                    <img
+                      src="/orianna.png"
+                      alt="Orianna"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="text-xs text-white font-semibold">Orianna</div>
+                  <div className="text-xs text-[#cfcfcf]">Mid</div>
+                  <div className="text-xs text-[#ff7a00] font-semibold mt-1">54 games</div>
+                </div>
+                {/* Zed */}
+                <div className="text-center">
+                  <div className="aspect-square bg-[#0d0d0d] rounded-lg border-2 border-[#ff7a00]/30 overflow-hidden mb-2">
+                    <img
+                      src="/zed.png"
+                      alt="Zed"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="text-xs text-white font-semibold">Zed</div>
+                  <div className="text-xs text-[#cfcfcf]">Mid</div>
+                  <div className="text-xs text-[#ff7a00] font-semibold mt-1">34 games</div>
+                </div>
               </div>
             </div>
 
@@ -167,7 +206,7 @@ export default function ReportPage() {
             {/* Footer */}
             <div className="flex items-center justify-between pt-6 border-t border-[#2b2b2b]">
               <div>
-                <div className="text-xs text-[#cfcfcf]">January 2025</div>
+                <div className="text-xs text-[#cfcfcf]">November 9, 2025</div>
                 <div className="text-xs text-[#ff7a00]">@spawnerai</div>
               </div>
               <div className="text-right">
@@ -204,19 +243,6 @@ export default function ReportPage() {
               </svg>
             </div>
             <span className="text-xs text-[#cfcfcf]">Instagram</span>
-          </button>
-
-          <button
-            onClick={() => handleShare("snapchat")}
-            className="flex flex-col items-center gap-2 group"
-            aria-label="Share on Snapchat"
-          >
-            <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-              <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.206.793c.99 1.002 2.402 2.562 3.91 4.601 4.932 6.33 10.613 15.805 6.264 20.15-.998 1.002-2.332 1.644-3.666 1.644-1.552 0-3.472-.834-5.508-2.61-1.12-1.01-2.128-2.01-2.619-2.405a.186.186 0 0 0-.225 0c-.491.395-1.499 1.395-2.619 2.405-2.036 1.776-3.956 2.61-5.508 2.61-1.334 0-2.668-.642-3.666-1.644C-.7 21.1 4.98 11.625 9.912 5.294c1.508-2.039 2.92-3.599 3.91-4.6z" />
-              </svg>
-            </div>
-            <span className="text-xs text-[#cfcfcf]">Snapchat</span>
           </button>
 
           <button
