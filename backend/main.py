@@ -41,6 +41,10 @@ class PatchAnalysisRequest(BaseModel):
     patch_url: Optional[str] = None
     compare_with_previous: bool = False
 
+class TrackerStatsRequest(BaseModel):
+    platform: str  # For Apex: "xbl", "psn", "origin", "pc". For CSGO: "steam"
+    player_name: str  # Platform-specific player identifier
+
 app = FastAPI(
     title="Spawner AI Backend",
     description="Backend API for Spawner AI - League of Legends team composition tool",
@@ -1214,6 +1218,190 @@ Return only valid JSON, no additional text."""
         raise HTTPException(
             status_code=500,
             detail=f"Error analyzing patch: {str(e)}"
+        )
+
+@app.post("/getApexStats")
+def get_apex_stats(
+    request: TrackerStatsRequest,
+    user: dict = Depends(get_optional_user)
+):
+    """
+    Get Apex Legends player statistics from tracker.gg API.
+    Requires platform (xbl, psn, origin, pc) and player name.
+    Returns player stats including kills, damage, wins, etc.
+    """
+    try:
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        tracker_api_key = os.getenv("trackerapikey")
+        if not tracker_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="Tracker.gg API key not configured. Please set trackerapikey in .env file."
+            )
+        
+        platform = request.platform.lower()
+        player_name = request.player_name
+        
+        # Validate platform
+        valid_platforms = ["xbl", "psn", "origin", "pc"]
+        if platform not in valid_platforms:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid platform. Must be one of: {', '.join(valid_platforms)}"
+            )
+        
+        # Make API request to tracker.gg
+        url = f"https://public-api.tracker.gg/v2/apex/standard/profile/{platform}/{player_name}"
+        headers = {
+            "TRN-Api-Key": tracker_api_key,
+            "Accept": "application/json"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Player '{player_name}' not found on platform '{platform}'"
+            )
+        elif response.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="API key invalid or IP blocked. Please check your tracker.gg API key."
+            )
+        elif response.status_code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Tracker.gg API allows 30 requests per minute."
+            )
+        elif response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Tracker.gg API error: {response.text}"
+            )
+        
+        data = response.json()
+        
+        return {
+            "success": True,
+            "platform": platform,
+            "player_name": player_name,
+            "data": data
+        }
+    
+    except HTTPException:
+        raise
+    except requests.RequestException as e:
+        print(f"Error fetching Apex stats: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error connecting to tracker.gg API: {str(e)}"
+        )
+    except Exception as e:
+        print(f"Error getting Apex stats: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting Apex stats: {str(e)}"
+        )
+
+@app.post("/getCSGOStats")
+def get_csgo_stats(
+    request: TrackerStatsRequest,
+    user: dict = Depends(get_optional_user)
+):
+    """
+    Get CS:GO player statistics from tracker.gg API.
+    Note: The tracker.gg CS:GO API is deprecated, but this route is structured
+    to work if you have access or want to use alternative APIs.
+    Requires platform (steam) and player name (Steam ID or username).
+    """
+    try:
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        tracker_api_key = os.getenv("trackerapikey")
+        if not tracker_api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="Tracker.gg API key not configured. Please set trackerapikey in .env file."
+            )
+        
+        platform = request.platform.lower()
+        player_name = request.player_name
+        
+        # CS:GO typically uses Steam platform
+        if platform != "steam":
+            raise HTTPException(
+                status_code=400,
+                detail="CS:GO stats require 'steam' platform. Please use platform='steam'."
+            )
+        
+        # Note: tracker.gg CS:GO API is deprecated, but we'll try the endpoint structure
+        # You may need to use an alternative API or get special access
+        url = f"https://public-api.tracker.gg/v2/csgo/standard/profile/{platform}/{player_name}"
+        headers = {
+            "TRN-Api-Key": tracker_api_key,
+            "Accept": "application/json"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Player '{player_name}' not found on platform '{platform}'. Note: CS:GO API may be deprecated."
+            )
+        elif response.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="API key invalid or IP blocked. Please check your tracker.gg API key."
+            )
+        elif response.status_code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Tracker.gg API allows 30 requests per minute."
+            )
+        elif response.status_code == 410 or "deprecated" in response.text.lower():
+            raise HTTPException(
+                status_code=410,
+                detail="CS:GO API endpoint is deprecated. Please use an alternative API or contact tracker.gg for access."
+            )
+        elif response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Tracker.gg API error: {response.text}"
+            )
+        
+        data = response.json()
+        
+        return {
+            "success": True,
+            "platform": platform,
+            "player_name": player_name,
+            "data": data
+        }
+    
+    except HTTPException:
+        raise
+    except requests.RequestException as e:
+        print(f"Error fetching CS:GO stats: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error connecting to tracker.gg API: {str(e)}"
+        )
+    except Exception as e:
+        print(f"Error getting CS:GO stats: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting CS:GO stats: {str(e)}"
         )
 
 # Note: Run the server with: uvicorn main:app --reload --port 8000
