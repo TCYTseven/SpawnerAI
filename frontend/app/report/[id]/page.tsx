@@ -2,11 +2,23 @@
 
 import { PageShell } from "@/components/layout/PageShell";
 import { Button } from "@heroui/button";
-import { Card, CardBody } from "@heroui/card";
-import { Chip } from "@heroui/chip";
-import { mockSquad, mockPlayers, getChampionsForRole, mockChampions } from "@/types/mock";
+import { Card, CardBody, CardHeader } from "@heroui/card";
+import { Spinner } from "@heroui/spinner";
+import { Progress } from "@heroui/progress";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { getSquadMembers, getSynergy, getMatchHistory } from "@/lib/api";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", section: "Overview" },
@@ -20,9 +32,90 @@ const navItems = [
 export default function ReportPage() {
   const params = useParams();
   const reportId = params.id as string;
+  const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [squadMembers, setSquadMembers] = useState<any[]>([]);
+  const [synergyData, setSynergyData] = useState<any>(null);
+  const [leagueProgression, setLeagueProgression] = useState<any[]>([]);
+  const hasFetchedRef = useRef(false);
 
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/report/${reportId}` : `/report/${reportId}`;
+
+  useEffect(() => {
+    if (hasFetchedRef.current || !user) {
+      if (!user) {
+        setLoading(false);
+      }
+      return;
+    }
+
+    hasFetchedRef.current = true;
+
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [squadResult, historyResult] = await Promise.all([
+          getSquadMembers(),
+          getMatchHistory(),
+        ]);
+
+        const { data: squadData, error: squadError } = squadResult;
+        const { data: historyData, error: historyError } = historyResult;
+
+        if (squadError) {
+          setError(squadError.message || "Failed to load squad data");
+          setLoading(false);
+          return;
+        }
+
+        if (squadData && squadData.members && squadData.members.length > 0) {
+          setSquadMembers(squadData.members);
+
+          const playerEmails = squadData.members.map((m: any) => m.email);
+
+          if (playerEmails.length >= 2) {
+            const synergyResult = await getSynergy(playerEmails);
+            const { data: synergy, error: synergyError } = synergyResult;
+
+            if (!synergyError && synergy) {
+              setSynergyData(synergy);
+            }
+          }
+        }
+
+        if (!historyError && historyData && historyData.league?.progression) {
+          const now = new Date();
+          const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+          const filteredProgression = historyData.league.progression
+            .filter((month: any) => {
+              const monthDate = new Date(month.month_key);
+              return monthDate >= oneYearAgo;
+            })
+            .map((month: any) => ({
+              month: month.month,
+              offense: Math.round(month.affinity.offense || 0),
+              tank: Math.round(month.affinity.tank || 0),
+              support: Math.round(month.affinity.support || 0),
+              scout: Math.round(month.affinity.scout || 0),
+              hybrid: Math.round(month.affinity.hybrid || 0),
+            }));
+
+          setLeagueProgression(filteredProgression);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
 
   const copyShareLink = async () => {
     try {
@@ -37,13 +130,12 @@ export default function ReportPage() {
   const handleShare = (platform: string) => {
     const text = `Check out my League of Legends squad report! ${shareLink}`;
     const url = encodeURIComponent(shareLink);
-    
+
     switch (platform) {
       case "twitter":
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${url}`, "_blank");
         break;
       case "instagram":
-        // Instagram doesn't support direct sharing, so copy link
         copyShareLink();
         alert("Link copied! Paste it in your Instagram story.");
         break;
@@ -60,14 +152,56 @@ export default function ReportPage() {
     }
   };
 
-  // Get top champions for each player
-  const topChampions = mockPlayers.map((player) => {
-    const bestRole = Object.entries(player.roleAffinity).reduce((a, b) =>
-      a[1] > b[1] ? a : b
-    )[0] as "Top" | "Jungle" | "Mid" | "ADC" | "Support";
-    const champs = getChampionsForRole(bestRole, 3);
-    return { player, role: bestRole, champions: champs };
-  });
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-[#1a1a1a] border border-[#2b2b2b] rounded-lg p-3 shadow-lg">
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {`${entry.name}: ${entry.value.toFixed(1)}%`}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <PageShell
+        title="Squad Report"
+        breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Report" }]}
+        navItems={navItems}
+      >
+        <div className="flex items-center justify-center h-[400px]">
+          <Spinner size="lg" color="warning" />
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell
+        title="Squad Report"
+        breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Report" }]}
+        navItems={navItems}
+      >
+        <Card className="bg-[#1a1a1a] border-2 border-red-500/50 max-w-2xl mx-auto">
+          <CardBody>
+            <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
+              <p className="font-semibold mb-2">Error loading report</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          </CardBody>
+        </Card>
+      </PageShell>
+    );
+  }
+
+  const synerggyScore = synergyData?.synergy_output?.overall_synergy_score || 0;
+  const teamName = synergyData?.synergy_output?.team_name || "Team Spawner";
 
   return (
     <PageShell
@@ -75,7 +209,7 @@ export default function ReportPage() {
       breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Report" }]}
       navItems={navItems}
     >
-      <div className="max-w-2xl mx-auto space-y-8 pb-12">
+      <div className="max-w-4xl mx-auto space-y-8 pb-12">
         {/* Main Recap Card */}
         <Card className="bg-gradient-to-br from-[#1a0a2e] via-[#16213e] to-[#0f3460] border-2 border-[#ff7a00]/30 overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-[#ff7a00]/10 to-transparent opacity-50" />
@@ -83,134 +217,158 @@ export default function ReportPage() {
             {/* Header */}
             <div className="text-center mb-8">
               <div className="text-xs font-mono text-[#ff7a00] uppercase tracking-widest mb-2">
-                YOUR SQUAD REPORT
+                SQUAD REPORT
               </div>
               <h1 className="text-4xl md:text-5xl font-black text-white mb-2">
-                Team RiftRewind!
+                {teamName}
               </h1>
               <div className="flex items-center justify-center gap-4 mt-4">
                 <div className="text-center">
-                  <div className="text-3xl font-black text-[#ff7a00]">78%</div>
-                  <div className="text-xs text-[#cfcfcf] uppercase tracking-wide">Synergy</div>
+                  <div className="text-3xl font-black text-[#ff7a00]">{synerggyScore}%</div>
+                  <div className="text-xs text-[#cfcfcf] uppercase tracking-wide">Overall Synergy</div>
                 </div>
               </div>
             </div>
 
-            {/* Top Players */}
+            {/* Squad Members */}
             <div className="mb-8">
               <div className="text-lg font-bold text-[#cfcfcf] mb-4 uppercase tracking-wide">
-                top players
+                Squad Members
               </div>
-              <div className="flex items-center justify-center gap-4">
-                {/* Player 1 - Tejas */}
-                <div className="text-center">
-                  <div className="relative mb-2">
-                    <img
-                      src="/orianna.png"
-                      alt="Tejas"
-                      className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg"
-                    />
-                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-[#ff7a00] rounded-full flex items-center justify-center text-white text-xs font-black border-2 border-white">
-                      1
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {squadMembers.map((member, idx) => (
+                  <div key={member.email} className="text-center">
+                    <div className="bg-[#0d0d0d] rounded-lg p-4 border border-[#2b2b2b]">
+                      <div className="relative mb-2">
+                        <div className="w-12 h-12 mx-auto bg-gradient-to-br from-[#ff7a00] to-orange-600 rounded-full flex items-center justify-center text-white font-bold">
+                          {member.email.charAt(0).toUpperCase()}
+                        </div>
+                        {idx === 0 && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#ff7a00] rounded-full flex items-center justify-center text-white text-xs font-black border border-white">
+                            ★
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm font-semibold text-white truncate">
+                        {member.email.split("@")[0]}
+                      </div>
+                      <div className="text-xs text-[#cfcfcf]">
+                        {member.suggested_role || "—"}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-sm font-semibold text-white">Tejas</div>
-                  <div className="text-xs text-[#cfcfcf]">Mid</div>
-                </div>
-                {/* Player 2 - Henry */}
-                <div className="text-center">
-                  <div className="relative mb-2">
-                    <img
-                      src="/zed.png"
-                      alt="Henry"
-                      className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg"
-                    />
-                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-[#ff7a00] rounded-full flex items-center justify-center text-white text-xs font-black border-2 border-white">
-                      2
-                    </div>
-                  </div>
-                  <div className="text-sm font-semibold text-white">Henry</div>
-                  <div className="text-xs text-[#cfcfcf]">Support</div>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Most Played Champions */}
-            <div className="mb-8">
-              <div className="text-lg font-bold text-[#cfcfcf] mb-4 uppercase tracking-wide">
-                most played
+            {/* Synergy Rationale */}
+            {synergyData?.synergy_output?.synergy_rationale && (
+              <div className="mb-8 p-4 bg-[#0d0d0d]/50 rounded-lg border border-[#2b2b2b]">
+                <h3 className="text-sm font-semibold text-[#ff7a00] mb-3">Synergy Analysis</h3>
+                <p className="text-sm text-[#cfcfcf] leading-relaxed">
+                  {synergyData.synergy_output.synergy_rationale}
+                </p>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                {/* Yasuo */}
-                <div className="text-center">
-                  <div className="aspect-square bg-[#0d0d0d] rounded-lg border-2 border-[#ff7a00]/30 overflow-hidden mb-2">
-                    <img
-                      src="/yasuo.png"
-                      alt="Yasuo"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="text-xs text-white font-semibold">Yasuo</div>
-                  <div className="text-xs text-[#cfcfcf]">Mid</div>
-                  <div className="text-xs text-[#ff7a00] font-semibold mt-1">53 games</div>
-                </div>
-                {/* Orianna */}
-                <div className="text-center">
-                  <div className="aspect-square bg-[#0d0d0d] rounded-lg border-2 border-[#ff7a00]/30 overflow-hidden mb-2">
-                    <img
-                      src="/orianna.png"
-                      alt="Orianna"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="text-xs text-white font-semibold">Orianna</div>
-                  <div className="text-xs text-[#cfcfcf]">Mid</div>
-                  <div className="text-xs text-[#ff7a00] font-semibold mt-1">54 games</div>
-                </div>
-                {/* Zed */}
-                <div className="text-center">
-                  <div className="aspect-square bg-[#0d0d0d] rounded-lg border-2 border-[#ff7a00]/30 overflow-hidden mb-2">
-                    <img
-                      src="/zed.png"
-                      alt="Zed"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="text-xs text-white font-semibold">Zed</div>
-                  <div className="text-xs text-[#cfcfcf]">Mid</div>
-                  <div className="text-xs text-[#ff7a00] font-semibold mt-1">34 games</div>
-                </div>
-              </div>
-            </div>
+            )}
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-[#0d0d0d]/50 rounded-lg p-4 text-center border border-[#2b2b2b]">
-                <div className="text-2xl font-black text-white">{mockSquad.members.length}</div>
-                <div className="text-xs text-[#cfcfcf] uppercase tracking-wide mt-1">Squad Size</div>
-              </div>
-              <div className="bg-[#0d0d0d]/50 rounded-lg p-4 text-center border border-[#2b2b2b]">
-                <div className="text-2xl font-black text-white">
-                  {mockSquad.compSuggestions.length}
+            {/* League of Legends Skill Progression */}
+            {leagueProgression.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-1 h-6 bg-[#ff7a00] rounded-full" />
+                  <h3 className="text-lg font-bold text-white">League of Legends Skill Progression</h3>
                 </div>
-                <div className="text-xs text-[#cfcfcf] uppercase tracking-wide mt-1">Comps</div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={leagueProgression}>
+                    <defs>
+                      <linearGradient id="colorOffenseReport" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ff7a00" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#ff7a00" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorTankReport" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorSupportReport" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorScoutReport" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorHybridReport" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2b2b2b" />
+                    <XAxis
+                      dataKey="month"
+                      stroke="#cfcfcf"
+                      tick={{ fill: "#cfcfcf", fontSize: 12 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis stroke="#cfcfcf" tick={{ fill: "#cfcfcf" }} domain={[0, 100]} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ color: "#cfcfcf" }} iconType="circle" />
+                    <Area
+                      type="monotone"
+                      dataKey="offense"
+                      stroke="#ff7a00"
+                      fillOpacity={1}
+                      fill="url(#colorOffenseReport)"
+                      name="Offense"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="tank"
+                      stroke="#3b82f6"
+                      fillOpacity={1}
+                      fill="url(#colorTankReport)"
+                      name="Tank"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="support"
+                      stroke="#10b981"
+                      fillOpacity={1}
+                      fill="url(#colorSupportReport)"
+                      name="Support"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="scout"
+                      stroke="#8b5cf6"
+                      fillOpacity={1}
+                      fill="url(#colorScoutReport)"
+                      name="Scout"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="hybrid"
+                      stroke="#ec4899"
+                      fillOpacity={1}
+                      fill="url(#colorHybridReport)"
+                      name="Hybrid"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-              <div className="bg-[#0d0d0d]/50 rounded-lg p-4 text-center border border-[#2b2b2b]">
-                <div className="text-2xl font-black text-white">
-                  {mockChampions.length}
-                </div>
-                <div className="text-xs text-[#cfcfcf] uppercase tracking-wide mt-1">Champions</div>
-              </div>
-            </div>
+            )}
 
             {/* Footer */}
             <div className="flex items-center justify-between pt-6 border-t border-[#2b2b2b]">
               <div>
-                <div className="text-xs text-[#cfcfcf]">November 9, 2025</div>
+                <div className="text-xs text-[#cfcfcf]">
+                  {new Date().toLocaleDateString()}
+                </div>
                 <div className="text-xs text-[#ff7a00]">@spawnerai</div>
               </div>
               <div className="text-right">
-                <div className="text-xs text-[#cfcfcf]">Join me on</div>
+                <div className="text-xs text-[#cfcfcf]">Join us on</div>
                 <div className="text-xs font-semibold text-[#ff7a00]">spawner.ai</div>
               </div>
             </div>

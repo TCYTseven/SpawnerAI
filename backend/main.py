@@ -784,6 +784,17 @@ def save_onboarding_data(
                 if csgo_username:
                     profile_updates["steam_id"] = csgo_username
         
+        # Extract and save League of Legends data to individual columns
+        if onboarding_data.league:
+            if onboarding_data.league.get("riotId"):
+                riot_id_value = onboarding_data.league["riotId"].strip()
+                if riot_id_value:
+                    profile_updates["riot_name"] = riot_id_value
+            if onboarding_data.league.get("riotTag"):
+                riot_tag_value = onboarding_data.league["riotTag"].strip()
+                if riot_tag_value:
+                    profile_updates["riot_id"] = riot_tag_value
+        
         # Note: riot_name and riot_id columns are preserved if they exist
         # They can be set separately or extracted from other sources
         # The JSON contains all detailed onboarding data, while individual columns

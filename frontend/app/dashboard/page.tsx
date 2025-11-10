@@ -3,10 +3,8 @@
 import { PageShell } from "@/components/layout/PageShell";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Button } from "@heroui/button";
-import { Chip } from "@heroui/chip";
 import { Progress } from "@heroui/progress";
 import { Tabs, Tab } from "@heroui/tabs";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { Spinner } from "@heroui/spinner";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -52,10 +50,8 @@ const affinityToCompetencyData = (affinity: any) => {
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState("");
-  const [selectedTab, setSelectedTab] = useState<"dota2" | "league">("dota2");
+
+  const [selectedTab, setSelectedTab] = useState<"league" | "dota2" | "apex" | "csgo" | "fortnite" | "valorant">("league");
   const [dota2CompetencyData, setDota2CompetencyData] = useState([
     { skill: "Offense", value: 0, max: 100 },
     { skill: "Tank", value: 0, max: 100 },
@@ -158,44 +154,6 @@ export default function DashboardPage() {
   }, [user]);
 
 
-  const handleAIAnalysis = async () => {
-    setIsAnalyzing(true);
-    onOpen();
-    
-    // Generate AI analysis based on selected game's competency data
-    const competencyData = selectedTab === "dota2" ? dota2CompetencyData : leagueCompetencyData;
-    const skillProgression = selectedTab === "dota2" ? dota2SkillProgression : leagueSkillProgression;
-    const gameName = selectedTab === "dota2" ? "Dota 2" : "League of Legends";
-    
-    setTimeout(() => {
-      const bestSkill = competencyData.reduce((a, b) => (a.value > b.value ? a : b));
-      const worstSkill = competencyData.reduce((a, b) => (a.value < b.value ? a : b));
-      
-      const analysis = `Based on your ${gameName} match history analysis:
-
-**Strengths:**
-- Your ${bestSkill.skill} skills are your strongest (${bestSkill.value}%), showing excellent performance in this area
-${skillProgression.length > 0 ? `- Skill progression shows ${skillProgression.length} months of match data analyzed` : ''}
-- Match history analysis indicates consistent playstyle patterns
-
-**Areas for Improvement:**
-- ${worstSkill.skill} skills (${worstSkill.value}%) could be developed further
-- Consider focusing on improving your weakest areas through targeted practice
-
-**Recommendations:**
-1. Focus on ${bestSkill.skill} - your strongest skill suggests this is your natural playstyle
-2. Work on improving ${worstSkill.skill} to become a more well-rounded player
-3. Review your match history trends to identify patterns in your gameplay
-4. Continue playing to build more match data for better predictions
-
-**Skill Breakdown:**
-${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
-      
-      setAiAnalysis(analysis);
-      setIsAnalyzing(false);
-    }, 2000);
-  };
-
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -218,24 +176,12 @@ ${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
       navItems={navItems}
     >
       <div className="space-y-6">
-        {/* Header with AI Analysis Button */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-black text-white mb-2">
-              Performance <span className="text-[#ff7a00]">Analytics</span>
-            </h1>
-            <p className="text-[#cfcfcf]">Track your Dota 2 performance and skill progression</p>
-          </div>
-          <Button
-            className="relative bg-gradient-to-r from-[#ff7a00] via-[#ff8a20] to-[#ff7a00] text-white font-semibold px-6 py-3 shadow-lg shadow-[#ff7a00]/30 hover:shadow-[#ff7a00]/50 transition-all duration-300 hover:scale-105 border border-[#ff7a00]/50"
-            onPress={handleAIAnalysis}
-            startContent={
-              <span className="text-xl drop-shadow-lg">🤖</span>
-            }
-          >
-            <span className="relative z-10">AI Analyze Performance</span>
-            <div className="absolute inset-0 bg-gradient-to-r from-[#ff7a00] via-[#ff9a40] to-[#ff7a00] opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
-          </Button>
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-black text-white mb-2">
+            Performance <span className="text-[#ff7a00]">Analytics</span>
+          </h1>
+          <p className="text-[#cfcfcf]">Track your gaming performance and skill progression across all titles</p>
         </div>
 
         {error && (
@@ -252,194 +198,13 @@ ${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
         {/* Game Tabs */}
         <Tabs
           selectedKey={selectedTab}
-          onSelectionChange={(key) => setSelectedTab(key as "dota2" | "league")}
+          onSelectionChange={(key) => setSelectedTab(key as "league" | "dota2" | "apex" | "csgo" | "fortnite" | "valorant")}
           classNames={{
             tabList: "bg-[#1a1a1a] border-2 border-[#2b2b2b] rounded-lg p-1",
             tab: "data-[selected=true]:bg-[#ff7a00] data-[selected=true]:text-white",
             tabContent: "text-[#cfcfcf]",
           }}
         >
-          <Tab key="dota2" title="Dota 2">
-            <div className="space-y-6 mt-6">
-
-        {/* Competency Breakdown */}
-        <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
-                    <h2 className="text-2xl font-bold text-white">Dota 2 Competency Breakdown</h2>
-            </div>
-          </CardHeader>
-          <CardBody>
-                  {loading ? (
-                    <div className="flex items-center justify-center h-[300px]">
-                      <Spinner size="lg" color="warning" />
-                    </div>
-                  ) : !dota2CompetencyData.some(s => s.value > 0) ? (
-                    <div className="flex items-center justify-center h-[300px] text-[#cfcfcf]">
-                      <p>No Dota 2 data available. Link your Steam ID in your profile to see your stats!</p>
-                    </div>
-                  ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Radar Chart */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4">Skill Radar</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                          <RadarChart data={dota2CompetencyData}>
-                    <PolarGrid stroke="#2b2b2b" />
-                    <PolarAngleAxis
-                      dataKey="skill"
-                      tick={{ fill: "#cfcfcf", fontSize: 12 }}
-                    />
-                    <PolarRadiusAxis
-                      angle={90}
-                      domain={[0, 100]}
-                      tick={{ fill: "#cfcfcf", fontSize: 10 }}
-                    />
-                    <Radar
-                      name="Competency"
-                      dataKey="value"
-                      stroke="#ff7a00"
-                      fill="#ff7a00"
-                      fillOpacity={0.6}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Progress Bars */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white mb-4">Detailed Metrics</h3>
-                        {dota2CompetencyData.map((item) => (
-                  <div key={item.skill} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-white font-medium">{item.skill}</span>
-                      <span className="text-[#ff7a00] font-bold">{item.value}%</span>
-                    </div>
-                    <Progress
-                      value={item.value}
-                      className="w-full"
-                      classNames={{
-                        indicator: "bg-gradient-to-r from-[#ff7a00] to-orange-600",
-                        track: "bg-[#0d0d0d]",
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-                  )}
-          </CardBody>
-        </Card>
-
-        {/* Skill Progression Over Time */}
-        <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
-                    <h2 className="text-2xl font-bold text-white">Dota 2 Skill Progression Over Time</h2>
-            </div>
-          </CardHeader>
-          <CardBody>
-                  {loading ? (
-                    <div className="flex items-center justify-center h-[400px]">
-                      <Spinner size="lg" color="warning" />
-                    </div>
-                  ) : dota2SkillProgression.length === 0 ? (
-                    <div className="flex items-center justify-center h-[400px] text-[#cfcfcf]">
-                      <p>No Dota 2 match history data available. Play some matches to see your progression!</p>
-                    </div>
-                  ) : (
-            <ResponsiveContainer width="100%" height={400}>
-                      <AreaChart data={dota2SkillProgression}>
-                <defs>
-                  <linearGradient id="colorOffense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ff7a00" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#ff7a00" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorTank" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorSupport" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorScout" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                  </linearGradient>
-                          <linearGradient id="colorHybrid" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2b2b2b" />
-                <XAxis
-                  dataKey="month"
-                  stroke="#cfcfcf"
-                          tick={{ fill: "#cfcfcf", fontSize: 12 }}
-                          angle={-45}
-                          textAnchor="end"
-                          height={80}
-                />
-                <YAxis
-                  stroke="#cfcfcf"
-                  tick={{ fill: "#cfcfcf" }}
-                  domain={[0, 100]}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend
-                  wrapperStyle={{ color: "#cfcfcf" }}
-                  iconType="circle"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="offense"
-                  stroke="#ff7a00"
-                  fillOpacity={1}
-                  fill="url(#colorOffense)"
-                  name="Offense"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="tank"
-                  stroke="#3b82f6"
-                  fillOpacity={1}
-                  fill="url(#colorTank)"
-                  name="Tank"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="support"
-                  stroke="#10b981"
-                  fillOpacity={1}
-                  fill="url(#colorSupport)"
-                  name="Support"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="scout"
-                  stroke="#8b5cf6"
-                  fillOpacity={1}
-                  fill="url(#colorScout)"
-                  name="Scout"
-                />
-                <Area
-                  type="monotone"
-                          dataKey="hybrid"
-                  stroke="#ec4899"
-                  fillOpacity={1}
-                          fill="url(#colorHybrid)"
-                          name="Hybrid"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-                  )}
-          </CardBody>
-        </Card>
-            </div>
-          </Tab>
           <Tab key="league" title="League of Legends">
             <div className="space-y-6 mt-6">
               {/* Competency Breakdown */}
@@ -620,161 +385,325 @@ ${competencyData.map(skill => `- ${skill.skill}: ${skill.value}%`).join('\n')}`;
         </Card>
             </div>
           </Tab>
+
+          <Tab key="dota2" title="Dota 2">
+            <div className="space-y-6 mt-6">
+              {/* Competency Breakdown */}
+              <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
+                    <h2 className="text-2xl font-bold text-white">Dota 2 Competency Breakdown</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  {loading ? (
+                    <div className="flex items-center justify-center h-[300px]">
+                      <Spinner size="lg" color="warning" />
+                    </div>
+                  ) : !dota2CompetencyData.some(s => s.value > 0) ? (
+                    <div className="flex items-center justify-center h-[300px] text-[#cfcfcf]">
+                      <p>No Dota 2 data available. Link your Steam ID in your profile to see your stats!</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Radar Chart */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-4">Skill Radar</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <RadarChart data={dota2CompetencyData}>
+                            <PolarGrid stroke="#2b2b2b" />
+                            <PolarAngleAxis dataKey="skill" tick={{ fill: "#cfcfcf", fontSize: 12 }} />
+                            <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#cfcfcf", fontSize: 10 }} />
+                            <Radar name="Competency" dataKey="value" stroke="#ff7a00" fill="#ff7a00" fillOpacity={0.6} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {/* Progress Bars */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white mb-4">Detailed Metrics</h3>
+                        {dota2CompetencyData.map((item) => (
+                          <div key={item.skill} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-white font-medium">{item.skill}</span>
+                              <span className="text-[#ff7a00] font-bold">{item.value}%</span>
+                            </div>
+                            <Progress value={item.value} className="w-full" classNames={{ indicator: "bg-gradient-to-r from-[#ff7a00] to-orange-600", track: "bg-[#0d0d0d]" }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+
+              {/* Skill Progression Over Time */}
+              <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
+                    <h2 className="text-2xl font-bold text-white">Dota 2 Skill Progression Over Time</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  {loading ? (
+                    <div className="flex items-center justify-center h-[400px]">
+                      <Spinner size="lg" color="warning" />
+                    </div>
+                  ) : dota2SkillProgression.length === 0 ? (
+                    <div className="flex items-center justify-center h-[400px] text-[#cfcfcf]">
+                      <p>No Dota 2 match history data available. Play some matches to see your progression!</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={400}>
+                      <AreaChart data={dota2SkillProgression}>
+                        <defs>
+                          <linearGradient id="colorOffenseDota" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ff7a00" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#ff7a00" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorTankDota" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorSupportDota" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorScoutDota" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorHybridDota" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#2b2b2b" />
+                        <XAxis dataKey="month" stroke="#cfcfcf" tick={{ fill: "#cfcfcf", fontSize: 12 }} angle={-45} textAnchor="end" height={80} />
+                        <YAxis stroke="#cfcfcf" tick={{ fill: "#cfcfcf" }} domain={[0, 100]} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend wrapperStyle={{ color: "#cfcfcf" }} iconType="circle" />
+                        <Area type="monotone" dataKey="offense" stroke="#ff7a00" fillOpacity={1} fill="url(#colorOffenseDota)" name="Offense" />
+                        <Area type="monotone" dataKey="tank" stroke="#3b82f6" fillOpacity={1} fill="url(#colorTankDota)" name="Tank" />
+                        <Area type="monotone" dataKey="support" stroke="#10b981" fillOpacity={1} fill="url(#colorSupportDota)" name="Support" />
+                        <Area type="monotone" dataKey="scout" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorScoutDota)" name="Scout" />
+                        <Area type="monotone" dataKey="hybrid" stroke="#ec4899" fillOpacity={1} fill="url(#colorHybridDota)" name="Hybrid" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardBody>
+              </Card>
+            </div>
+          </Tab>
+
+          <Tab key="apex" title="Apex Legends">
+            <div className="space-y-6 mt-6">
+              <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
+                    <h2 className="text-2xl font-bold text-white">Apex Legends Stats</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-4">Skill Breakdown</h3>
+                      <div className="space-y-4">
+                        {[
+                          { skill: "Aim Precision", value: 85 },
+                          { skill: "Legend Mastery", value: 78 },
+                          { skill: "Team Communication", value: 82 },
+                          { skill: "Positioning", value: 80 },
+                          { skill: "Clutch Performance", value: 75 },
+                        ].map((item) => (
+                          <div key={item.skill} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-white font-medium">{item.skill}</span>
+                              <span className="text-[#ff7a00] font-bold">{item.value}%</span>
+                            </div>
+                            <Progress value={item.value} className="w-full" classNames={{ indicator: "bg-gradient-to-r from-[#ff7a00] to-orange-600", track: "bg-[#0d0d0d]" }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-[#0d0d0d] rounded-lg p-4 border border-[#2b2b2b] space-y-4">
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Total Kills</p>
+                        <p className="text-3xl font-bold text-white">1,247</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">K/D Ratio</p>
+                        <p className="text-3xl font-bold text-[#ff7a00]">2.3</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Win Rate</p>
+                        <p className="text-3xl font-bold text-white">18.5%</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          </Tab>
+
+          <Tab key="csgo" title="CS:GO">
+            <div className="space-y-6 mt-6">
+              <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
+                    <h2 className="text-2xl font-bold text-white">CS:GO Stats</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-4">Performance Metrics</h3>
+                      <div className="space-y-4">
+                        {[
+                          { skill: "Aim Accuracy", value: 89 },
+                          { skill: "Map Knowledge", value: 84 },
+                          { skill: "Recoil Control", value: 87 },
+                          { skill: "Game Sense", value: 81 },
+                          { skill: "Spray Control", value: 85 },
+                        ].map((item) => (
+                          <div key={item.skill} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-white font-medium">{item.skill}</span>
+                              <span className="text-[#ff7a00] font-bold">{item.value}%</span>
+                            </div>
+                            <Progress value={item.value} className="w-full" classNames={{ indicator: "bg-gradient-to-r from-[#ff7a00] to-orange-600", track: "bg-[#0d0d0d]" }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-[#0d0d0d] rounded-lg p-4 border border-[#2b2b2b] space-y-4">
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Rank</p>
+                        <p className="text-3xl font-bold text-white">Global Elite</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Win Rate</p>
+                        <p className="text-3xl font-bold text-[#ff7a00]">62.4%</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Average Rating</p>
+                        <p className="text-3xl font-bold text-white">1.28</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          </Tab>
+
+          <Tab key="fortnite" title="Fortnite">
+            <div className="space-y-6 mt-6">
+              <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
+                    <h2 className="text-2xl font-bold text-white">Fortnite Stats</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-4">Playstyle Analysis</h3>
+                      <div className="space-y-4">
+                        {[
+                          { skill: "Building Speed", value: 91 },
+                          { skill: "Combat Awareness", value: 86 },
+                          { skill: "Editing Precision", value: 88 },
+                          { skill: "Rotation Management", value: 79 },
+                          { skill: "Loadout Optimization", value: 83 },
+                        ].map((item) => (
+                          <div key={item.skill} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-white font-medium">{item.skill}</span>
+                              <span className="text-[#ff7a00] font-bold">{item.value}%</span>
+                            </div>
+                            <Progress value={item.value} className="w-full" classNames={{ indicator: "bg-gradient-to-r from-[#ff7a00] to-orange-600", track: "bg-[#0d0d0d]" }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-[#0d0d0d] rounded-lg p-4 border border-[#2b2b2b] space-y-4">
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Wins (Solo)</p>
+                        <p className="text-3xl font-bold text-white">342</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Win Rate</p>
+                        <p className="text-3xl font-bold text-[#ff7a00]">14.2%</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">K/D Ratio</p>
+                        <p className="text-3xl font-bold text-white">2.1</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          </Tab>
+
+          <Tab key="valorant" title="Valorant">
+            <div className="space-y-6 mt-6">
+              <Card className="bg-[#1a1a1a] border-2 border-[#2b2b2b]">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-8 bg-[#ff7a00] rounded-full" />
+                    <h2 className="text-2xl font-bold text-white">Valorant Stats</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-4">Agent Performance</h3>
+                      <div className="space-y-4">
+                        {[
+                          { skill: "Aim Consistency", value: 87 },
+                          { skill: "Ability Usage", value: 85 },
+                          { skill: "Map Control", value: 83 },
+                          { skill: "Economy Management", value: 80 },
+                          { skill: "Team Coordination", value: 88 },
+                        ].map((item) => (
+                          <div key={item.skill} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-white font-medium">{item.skill}</span>
+                              <span className="text-[#ff7a00] font-bold">{item.value}%</span>
+                            </div>
+                            <Progress value={item.value} className="w-full" classNames={{ indicator: "bg-gradient-to-r from-[#ff7a00] to-orange-600", track: "bg-[#0d0d0d]" }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-[#0d0d0d] rounded-lg p-4 border border-[#2b2b2b] space-y-4">
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Current Rank</p>
+                        <p className="text-3xl font-bold text-white">Radiant</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Win Rate</p>
+                        <p className="text-3xl font-bold text-[#ff7a00]">58.6%</p>
+                      </div>
+                      <div>
+                        <p className="text-[#cfcfcf] text-sm">Combat Score/Round</p>
+                        <p className="text-3xl font-bold text-white">234</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          </Tab>
         </Tabs>
 
       </div>
 
-      {/* AI Analysis Modal */}
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        size="lg"
-        classNames={{
-          base: "bg-[#1a1a1a] border border-[#ff7a00]/40",
-          header: "border-b border-[#2b2b2b] pb-3",
-          body: "py-4",
-          footer: "border-t border-[#2b2b2b] pt-3",
-        }}
-      >
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2 pb-2">
-            <span className="text-xl">🤖</span>
-            <h2 className="text-xl font-bold text-[#ff7a00]">AI Performance Analysis</h2>
-          </ModalHeader>
-          <ModalBody>
-            {isAnalyzing ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Spinner size="md" color="warning" />
-                <p className="text-[#cfcfcf] mt-4 text-sm">Analyzing...</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {aiAnalysis && (() => {
-                  // Parse the analysis text into structured sections
-                  const structuredData: { [key: string]: string[] } = {};
-                  const lines = aiAnalysis.split('\n');
-                  let currentSection = '';
-                  
-                  for (const line of lines) {
-                    const trimmed = line.trim();
-                    // Check if it's a section header (e.g., **Strengths:**)
-                    const sectionMatch = trimmed.match(/\*\*(.+?):\*\*/);
-                    if (sectionMatch) {
-                      currentSection = sectionMatch[1].trim();
-                      structuredData[currentSection] = [];
-                    } else if (currentSection && trimmed) {
-                      // Check if it's a bullet point or numbered item
-                      if (trimmed.startsWith('-') || trimmed.match(/^\d+\./)) {
-                        const cleaned = trimmed.replace(/^[-•\d+\.]\s*/, '').trim();
-                        if (cleaned) {
-                          structuredData[currentSection].push(cleaned);
-                        }
-                      }
-                    }
-                  }
-                  
-                  return (
-                    <div className="space-y-3">
-                      {structuredData['Strengths'] && structuredData['Strengths'].length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
-                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
-                            Strengths
-                          </h3>
-                          <ul className="space-y-1.5 ml-3">
-                            {structuredData['Strengths'].map((item, idx) => (
-                              <li key={idx} className="text-sm text-[#cfcfcf] flex items-start gap-2">
-                                <span className="text-[#ff7a00] mt-0.5">•</span>
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {structuredData['Areas for Improvement'] && structuredData['Areas for Improvement'].length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
-                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
-                            Areas for Improvement
-                          </h3>
-                          <ul className="space-y-1.5 ml-3">
-                            {structuredData['Areas for Improvement'].map((item, idx) => (
-                              <li key={idx} className="text-sm text-[#cfcfcf] flex items-start gap-2">
-                                <span className="text-[#ff7a00] mt-0.5">•</span>
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {structuredData['Recommendations'] && structuredData['Recommendations'].length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
-                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
-                            Recommendations
-                          </h3>
-                          <ol className="space-y-1.5 ml-3">
-                            {structuredData['Recommendations'].map((item, idx) => (
-                              <li key={idx} className="text-sm text-[#cfcfcf] flex items-start gap-2">
-                                <span className="text-[#ff7a00] font-semibold min-w-[20px]">{idx + 1}.</span>
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      )}
-                      
-                      {structuredData['Skill Breakdown'] && structuredData['Skill Breakdown'].length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-semibold text-[#ff7a00] mb-2 flex items-center gap-2">
-                            <span className="w-1 h-4 bg-[#ff7a00]"></span>
-                            Skill Breakdown
-                          </h3>
-                          <div className="space-y-2 ml-3">
-                            {structuredData['Skill Breakdown'].map((item, idx) => {
-                              const match = item.match(/(.+):\s*(\d+)%/);
-                              if (!match) return null;
-                              const [, skill, value] = match;
-                              const numValue = parseInt(value);
-                              return (
-                                <div key={idx} className="space-y-1">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm text-white">{skill}</span>
-                                    <span className="text-sm text-[#ff7a00] font-semibold">{value}%</span>
-                                  </div>
-                                  <Progress
-                                    value={numValue}
-                                    size="sm"
-                                    className="w-full"
-                                    classNames={{
-                                      indicator: "bg-[#ff7a00]",
-                                      track: "bg-[#0d0d0d]",
-                                    }}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              className="bg-[#ff7a00] text-white text-sm px-4 hover:bg-[#ff8a20]"
-              onPress={onClose}
-            >
-              Close
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </PageShell>
   );
 }

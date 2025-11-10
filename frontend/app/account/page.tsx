@@ -186,6 +186,76 @@ export default function AccountPage() {
                 isDisabled={loading || saving}
               />
             </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">Apex Legends</h3>
+              <Input
+                label="Username"
+                placeholder="Your Apex username"
+                classNames={{
+                  input: "text-white",
+                  inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                  label: "text-[#cfcfcf]",
+                }}
+                description="Your Apex Legends in-game username"
+                isDisabled={loading || saving}
+              />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">CS:GO</h3>
+              <Input
+                label="Steam Profile URL"
+                placeholder="https://steamcommunity.com/profiles/..."
+                classNames={{
+                  input: "text-white",
+                  inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                  label: "text-[#cfcfcf]",
+                }}
+                description="Your CS:GO Steam profile URL"
+                isDisabled={loading || saving}
+              />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">Fortnite</h3>
+              <Input
+                label="Epic Games Username"
+                placeholder="Your Epic Games username"
+                classNames={{
+                  input: "text-white",
+                  inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                  label: "text-[#cfcfcf]",
+                }}
+                description="Your Epic Games username (used for Fortnite)"
+                isDisabled={loading || saving}
+              />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">Valorant</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Valorant Username"
+                  placeholder="Your Valorant username"
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                    label: "text-[#cfcfcf]",
+                  }}
+                  description="Your Valorant in-game username"
+                  isDisabled={loading || saving}
+                />
+                <Input
+                  label="Valorant Tag"
+                  placeholder="TAG"
+                  maxLength={5}
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b]",
+                    label: "text-[#cfcfcf]",
+                  }}
+                  description="Your Valorant tag (the part after the #)"
+                  isDisabled={loading || saving}
+                />
+              </div>
+            </div>
             <Button
               className="bg-[#ff7a00] text-white hover:bg-[#ff8a20]"
               onPress={handleSaveProfile}

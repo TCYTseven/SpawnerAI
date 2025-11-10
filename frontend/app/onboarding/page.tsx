@@ -32,6 +32,11 @@ const steps = [
     description: "Tell us about your experience",
   },
   {
+    key: "league",
+    title: "League of Legends",
+    description: "Connect your Riot account",
+  },
+  {
     key: "fetching",
     title: "Analyzing",
     description: "Fetching your stats",
@@ -86,10 +91,9 @@ export default function OnboardingPage() {
   const [dota2Username, setDota2Username] = useState("");
   // Selected games
   const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set());
-  // Fortnite/Valorant/League experience
+  // Fortnite/Valorant experience
   const [hasPlayedFortnite, setHasPlayedFortnite] = useState(false);
   const [hasPlayedValorant, setHasPlayedValorant] = useState(false);
-  const [hasPlayedLeague, setHasPlayedLeague] = useState(false);
   // Fortnite profile
   const [fortniteGamemode, setFortniteGamemode] = useState<string>("");
   const [fortniteRole, setFortniteRole] = useState<string>("");
@@ -102,11 +106,8 @@ export default function OnboardingPage() {
   const [valorantCompetitive, setValorantCompetitive] = useState(false);
   const [valorantYears, setValorantYears] = useState<string>("");
   // League of Legends profile
-  const [leagueRole, setLeagueRole] = useState<string>("");
-  const [leagueChampion, setLeagueChampion] = useState<string>("");
-  const [leagueMode, setLeagueMode] = useState<string>("");
-  const [leagueYears, setLeagueYears] = useState<string>("");
-  const [leagueCompetitive, setLeagueCompetitive] = useState(false);
+  const [leagueRiotId, setLeagueRiotId] = useState<string>("");
+  const [leagueRiotTag, setLeagueRiotTag] = useState<string>("");
   // Other state
   const [fetchingProgress, setFetchingProgress] = useState(0);
   const [fetchingError, setFetchingError] = useState<string | null>(null);
@@ -116,7 +117,7 @@ export default function OnboardingPage() {
 
   // Fetch stats from backend when reaching the analyzing step
   useEffect(() => {
-    if (currentStep === 2 && user) {
+    if (currentStep === 3 && user) {
       setFetchingProgress(0);
       setFetchingError(null);
       
@@ -135,7 +136,7 @@ export default function OnboardingPage() {
         clearInterval(progressInterval);
         setFetchingProgress(100);
         setTimeout(() => {
-          setCurrentStep(3); // Move to milestone step
+          setCurrentStep(4); // Move to milestone step
         }, 800);
       }, 6000); // 6 seconds instead of 2.5 seconds
 
@@ -187,11 +188,14 @@ export default function OnboardingPage() {
       // Experience step - can proceed if at least one toggle is on or both are off
       setCurrentStep(2);
     } else if (currentStep === 2) {
+      // League step - can proceed regardless
+      setCurrentStep(3);
+    } else if (currentStep === 3) {
       // Analyzing step - auto-advances (handled by useEffect)
       return;
-    } else if (currentStep === 3) {
+    } else if (currentStep === 4) {
       // Milestone step - move to terminology
-      setCurrentStep(4);
+      setCurrentStep(5);
     } else if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -234,12 +238,9 @@ export default function OnboardingPage() {
 
         // Prepare League data
         const leagueData: any = {};
-        if (hasPlayedLeague) {
-          if (leagueChampion) leagueData.champion = leagueChampion;
-          if (leagueMode) leagueData.mode = leagueMode;
-          if (leagueRole) leagueData.role = leagueRole;
-          if (leagueYears) leagueData.years = leagueYears;
-          leagueData.competitive = leagueCompetitive;
+        if (leagueRiotId || leagueRiotTag) {
+          if (leagueRiotId) leagueData.riotId = leagueRiotId;
+          if (leagueRiotTag) leagueData.riotTag = leagueRiotTag;
         }
 
         // Save onboarding data
@@ -292,20 +293,21 @@ export default function OnboardingPage() {
       if (hasPlayedValorant) {
         if (!valorantAgent || !valorantMode || !valorantRole || !valorantYears) return false;
       }
-      if (hasPlayedLeague) {
-        if (!leagueRole || !leagueChampion || !leagueMode || !leagueYears) return false;
-      }
       return true;
     }
-    if (currentStep === 4) {
+    if (currentStep === 2) {
+      // League step - allow proceeding even if empty
+      return true;
+    }
+    if (currentStep === 5) {
       return completedTerms.length === leagueTerms.length;
     }
     // For analyzing step, don't allow manual progression
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       return false;
     }
     // Milestone step - can always proceed
-    if (currentStep === 3) {
+    if (currentStep === 4) {
       return true;
     }
     return true;
@@ -437,7 +439,7 @@ export default function OnboardingPage() {
               <p className="text-lg text-[#cfcfcf]">Help us build your gaming profile</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Fortnite */}
               <div className={`bg-[#1a1a1a] rounded-2xl p-8 border transition-all duration-300 ${
                 hasPlayedFortnite 
@@ -704,150 +706,70 @@ export default function OnboardingPage() {
                   </div>
                 )}
               </div>
-
-              {/* League of Legends */}
-              <div className={`bg-[#1a1a1a] rounded-2xl p-8 border transition-all duration-300 ${
-                hasPlayedLeague 
-                  ? "border-[#c89b3c] shadow-lg shadow-[#c89b3c]/20" 
-                  : "border-[#2b2b2b] hover:border-[#c89b3c]/50 hover:shadow-lg hover:shadow-[#c89b3c]/10"
-              }`}>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className={`rounded-xl p-3 transition-all duration-300 ${
-                      hasPlayedLeague 
-                        ? "bg-[#0d0d0d] ring-2 ring-[#c89b3c]/50" 
-                        : "bg-[#0d0d0d] hover:bg-[#141414]"
-                    }`}>
-                      <div className={`w-16 h-16 relative transition-transform duration-300 ${
-                        hasPlayedLeague ? "scale-100" : "scale-95 hover:scale-100"
-                      }`}>
-                        <Image
-                          src="/leauge.png"
-                          alt="League of Legends"
-                          fill
-                          className={`object-contain rounded-lg transition-opacity duration-300 ${
-                            hasPlayedLeague ? "opacity-100" : "opacity-70 hover:opacity-100"
-                          }`}
-                        />
-                      </div>
-                    </div>
-                    <h4 className={`text-xl font-semibold transition-colors duration-300 ${
-                      hasPlayedLeague ? "text-white" : "text-[#cfcfcf] hover:text-white"
-                    }`}>
-                      League of Legends
-                    </h4>
-                  </div>
-                  <Switch
-                    isSelected={hasPlayedLeague}
-                    onValueChange={setHasPlayedLeague}
-                    classNames={{
-                      wrapper: "group-data-[selected=true]:bg-[#c89b3c]",
-                    }}
-                  />
-                </div>
-                {!hasPlayedLeague && (
-                  <p className="text-sm text-[#8a8a8a] text-center mt-4">
-                    Toggle to add your gaming experience
-                  </p>
-                )}
-
-                {hasPlayedLeague && (
-                  <div className="space-y-6 mt-6 pt-6 border-t border-[#2b2b2b]">
-                    <div>
-                      <label className="text-sm text-[#cfcfcf] mb-2 block">Favorite Champion</label>
-                      <Input
-                        placeholder="e.g., Yasuo, Jinx, Thresh"
-                        value={leagueChampion}
-                        onChange={(e) => setLeagueChampion(e.target.value)}
-                        classNames={{
-                          input: "text-white",
-                          inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b] rounded-lg",
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-[#cfcfcf] mb-2 block">Favorite Mode</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {["Ranked", "Normal", "ARAM", "TFT"].map((mode) => (
-                          <button
-                            key={mode}
-                            onClick={() => setLeagueMode(mode)}
-                            className={`px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                              leagueMode === mode
-                                ? "bg-[#c89b3c] text-white"
-                                : "bg-[#0d0d0d] text-[#cfcfcf] hover:bg-[#2b2b2b]"
-                            }`}
-                          >
-                            {mode}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-[#cfcfcf] mb-2 block">Your Role</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {["Top", "Jungle", "Mid", "ADC", "Support"].map((role) => (
-                          <button
-                            key={role}
-                            onClick={() => setLeagueRole(role)}
-                            className={`px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                              leagueRole === role
-                                ? "bg-[#c89b3c] text-white"
-                                : "bg-[#0d0d0d] text-[#cfcfcf] hover:bg-[#2b2b2b]"
-                            }`}
-                          >
-                            {role}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-[#cfcfcf] mb-2 block">
-                        Years Played: {leagueYears || "<1"}
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="3"
-                        step="1"
-                        value={leagueYears === "<1" ? 0 : leagueYears === "1-2" ? 1 : leagueYears === "2-3" ? 2 : leagueYears === "3+" ? 3 : 0}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setLeagueYears(val === 0 ? "<1" : val === 1 ? "1-2" : val === 2 ? "2-3" : "3+");
-                        }}
-                        className="w-full h-2 bg-[#0d0d0d] rounded-lg appearance-none cursor-pointer slider slider-league"
-                        style={{
-                          background: `linear-gradient(to right, #c89b3c 0%, #c89b3c ${(leagueYears === "<1" ? 0 : leagueYears === "1-2" ? 1 : leagueYears === "2-3" ? 2 : leagueYears === "3+" ? 3 : 0) * 33.33}%, #2b2b2b ${(leagueYears === "<1" ? 0 : leagueYears === "1-2" ? 1 : leagueYears === "2-3" ? 2 : leagueYears === "3+" ? 3 : 0) * 33.33}%, #2b2b2b 100%)`
-                        }}
-                      />
-                      <div className="flex justify-between text-xs text-[#cfcfcf] mt-1">
-                        <span>&lt;1</span>
-                        <span>1-2</span>
-                        <span>2-3</span>
-                        <span>3+</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-[#2b2b2b]">
-                      <span className="text-sm text-[#cfcfcf]">Played Competitively?</span>
-                      <Switch
-                        isSelected={leagueCompetitive}
-                        onValueChange={setLeagueCompetitive}
-                        classNames={{
-                          wrapper: "group-data-[selected=true]:bg-[#c89b3c]",
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         );
       case 2:
+        return (
+          <div className="space-y-8 max-w-2xl">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold text-white mb-3">League of Legends</h3>
+              <p className="text-lg text-[#cfcfcf]">Connect your Riot account</p>
+            </div>
+
+            <div className="bg-[#1a1a1a] rounded-2xl p-8 border border-[#2b2b2b] space-y-6">
+              <div className="bg-[#0d0d0d] rounded-xl p-6 flex items-center justify-center mb-8">
+                <div className="w-24 h-24 relative">
+                  <Image
+                    src="/leauge.png"
+                    alt="League of Legends"
+                    fill
+                    className="object-contain rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm text-[#cfcfcf] mb-2 block">Riot ID</label>
+                <Input
+                  placeholder="Your Summoner Name"
+                  value={leagueRiotId}
+                  onChange={(e) => setLeagueRiotId(e.target.value)}
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b] rounded-lg",
+                    label: "text-[#cfcfcf]",
+                  }}
+                />
+                <p className="text-xs text-[#8a8a8a] mt-2">
+                  Enter your League of Legends summoner name
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm text-[#cfcfcf] mb-2 block">Riot Tag</label>
+                <Input
+                  placeholder="e.g., #NA1"
+                  value={leagueRiotTag}
+                  onChange={(e) => setLeagueRiotTag(e.target.value)}
+                  classNames={{
+                    input: "text-white",
+                    inputWrapper: "bg-[#0d0d0d] border-[#2b2b2b] rounded-lg",
+                    label: "text-[#cfcfcf]",
+                  }}
+                />
+                <p className="text-xs text-[#8a8a8a] mt-2">
+                  Your regional tag (found after #)
+                </p>
+              </div>
+
+              <p className="text-sm text-[#cfcfcf] bg-[#0d0d0d]/50 p-4 rounded-lg border border-[#2b2b2b]">
+                We'll use this to fetch your match history and analyze your skill progression. This step is optional.
+              </p>
+            </div>
+          </div>
+        );
+      case 3:
         const gamesToFetch = [
           selectedGames.has("apex") && apexUsername && "Apex Legends",
           selectedGames.has("csgo") && csgoUsername && "CS:GO",
@@ -927,7 +849,7 @@ export default function OnboardingPage() {
             </div>
           </div>
         );
-      case 3:
+      case 4:
         return (
           <div className="max-w-3xl mx-auto">
             <div className="text-center space-y-8 py-12">
@@ -948,7 +870,7 @@ export default function OnboardingPage() {
             </div>
           </div>
         );
-      case 4:
+      case 5:
         return (
           <div className="space-y-8 max-w-3xl">
             {leagueTerms.map((term, index) => {
