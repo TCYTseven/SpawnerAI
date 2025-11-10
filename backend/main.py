@@ -56,7 +56,7 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost",
-    "https://spawnerai-zeta.vercel.app",  # add your production domain(s)
+    "https://spawnerai-26uv1vgz6-hongyihenrytian-3537s-projects.vercel.app",  # add your production domain(s)
 ]
 
 app.add_middleware(
