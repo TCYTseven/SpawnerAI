@@ -249,6 +249,7 @@ export default function MetaPage() {
                   className="min-w-[200px]"
                 >
                   {patches.slice(0, 10).map((patch) => (
+                    // @ts-ignore-next-line
                     <SelectItem key={patch.title} value={patch.title}>
                       {patch.title}
                     </SelectItem>

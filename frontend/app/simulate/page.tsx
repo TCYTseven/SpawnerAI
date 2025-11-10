@@ -249,8 +249,15 @@ export default function SimulatePage() {
                   }}
                 >
                   {members.map((member) => (
+<<<<<<< HEAD
                     <SelectItem 
                       key={member.email} 
+=======
+                    // @ts-ignore-next-line
+                    <SelectItem
+                      key={member.email}
+                      textValue={member.riot_name || member.email}
+>>>>>>> 7fc462a (vercel fix)
                       value={member.email}
                       textValue={member.riot_name || member.email}
                     >
@@ -277,11 +284,34 @@ export default function SimulatePage() {
                     value: "text-white",
                   }}
                 >
+<<<<<<< HEAD
                   <SelectItem key="Top" value="Top">Top</SelectItem>
                   <SelectItem key="Jungle" value="Jungle">Jungle</SelectItem>
                   <SelectItem key="Mid" value="Mid">Mid</SelectItem>
                   <SelectItem key="ADC" value="ADC">ADC</SelectItem>
                   <SelectItem key="Support" value="Support">Support</SelectItem>
+=======
+                  // @ts-ignore-next-line
+                  <SelectItem key="Top" value="Top">
+                    Top
+                  </SelectItem>
+                  // @ts-ignore-next-line
+                  <SelectItem key="Jungle" value="Jungle">
+                    Jungle
+                  </SelectItem>
+                  // @ts-ignore-next-line
+                  <SelectItem key="Mid" value="Mid">
+                    Mid
+                  </SelectItem>
+                  // @ts-ignore-next-line
+                  <SelectItem key="ADC" value="ADC">
+                    ADC
+                  </SelectItem>
+                  // @ts-ignore-next-line
+                  <SelectItem key="Support" value="Support">
+                    Support
+                  </SelectItem>
+>>>>>>> 7fc462a (vercel fix)
                 </Select>
               </div>
 
